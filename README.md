@@ -1,0 +1,1 @@
+# albion-online-sign-up-bot
