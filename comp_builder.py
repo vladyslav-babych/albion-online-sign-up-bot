@@ -42,17 +42,19 @@ async def officer_forced_signout(message, roles, original_comp_text, role_number
 	await update_comp_text(original_comp_text, roles)
 	await message.reply(f"{mention} was signed out from **{role_name}**")
 
-async def sign_up_user(message, roles, original_comp_text, role_number: int):
+async def sign_up_user(message, roles, original_comp_text, role_number: int, member=None):
 	idx = find_role_index_by_number(roles, role_number)
 	if idx is None:
 		return
+	if member is None:
+		member = message.author
 	# Avoid duplicate mentions
-	if message.author.mention in roles[idx]:
+	if member.mention in roles[idx]:
 		return
-	role_name = roles[idx].split(f"{role_number}. ")[1].split(f" {message.author.mention}")[0].strip()
-	roles[idx] = roles[idx] + f" {message.author.mention}"
+	role_name = roles[idx].split(f"{role_number}. ")[1].split(f" {member.mention}")[0].strip()
+	roles[idx] = roles[idx] + f" {member.mention}"
 	await update_comp_text(original_comp_text, roles)
-	await message.reply(f"{message.author.mention} was signed up as **{role_name}**")
+	await message.reply(f"{member.mention} was signed up as **{role_name}**")
 
 async def sign_out_self(message, roles, original_comp_text):
 	for idx, role in enumerate(roles):
@@ -84,6 +86,18 @@ async def on_message_in_thread(message):
 	if user_text.isdigit():
 		await sign_up_user(message, roles, original_comp_text, int(user_text))
 		return
+
+	# Officer forced sign-up with mention
+	if has_manage_messages_permission(message):
+		match = re.search(r'(<@!?[0-9]+>)\s+(\d+)', user_text)
+		if match:
+			mention = match.group(1)
+			role_number = int(match.group(2))
+			user_id = int(mention[2:-1].lstrip('!'))
+			member = message.guild.get_member(user_id)
+			if member:
+				await sign_up_user(message, roles, original_comp_text, role_number, member)
+				return
 
 	# Sign out self
 	if user_text == '-':
