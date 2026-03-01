@@ -1,5 +1,3 @@
-# Albion Online sign-up bot for discord
-
 ## Bot commands:
 
 - !clear
