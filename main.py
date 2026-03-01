@@ -21,21 +21,20 @@ async def on_ready():
     print(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
     print('------')
 
-@bot.command(name='create-comp', aliases=['create-comp-msg'])
+@bot.command(name='create-comp')
 async def create_comp_from_message(context, comp_message_id: int, source_channel_id: int = None):
-    # optional: delete the invoking command message
     await context.message.delete()
 
-    # choose source channel (defaults to current)
-    source_channel = context.channel if source_channel_id is None else bot.get_channel(source_channel_id)
-    if source_channel is None:
-        source_channel = await bot.fetch_channel(source_channel_id)
-
+    source_channel = bot.get_channel(source_channel_id)
+    if source_channel_id is None:
+        await context.send("You must provide a **Channel ID** as a second parameter.")
+        return
+    
     # fetch the source message by id
     try:
         source_message = await source_channel.fetch_message(comp_message_id)
     except Exception:
-        await context.send("Could not fetch comp message.")
+        await context.send("Could not fetch comp message. Make sure that **Channel ID** was inserted correctly.")
         return
 
     # parse parties from the message content and create posts+threads

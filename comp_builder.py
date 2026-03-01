@@ -48,9 +48,15 @@ async def sign_up_user(message, roles, original_comp_text, role_number: int, mem
 		return
 	if member is None:
 		member = message.author
-	# Avoid duplicate mentions
-	if member.mention in roles[idx]:
+
+	# Check if the role is already taken
+	is_role_talen = find_first_mention(roles[idx])
+	if is_role_talen:
+		if is_role_talen == member.mention:
+			return
+		await message.reply("This role is already taken.")
 		return
+	
 	role_name = roles[idx].split(f"{role_number}. ")[1].split(f" {member.mention}")[0].strip()
 	roles[idx] = roles[idx] + f" {member.mention}"
 	await update_comp_text(original_comp_text, roles)
