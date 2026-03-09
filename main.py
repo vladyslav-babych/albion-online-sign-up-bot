@@ -4,22 +4,25 @@ import logging
 from dotenv import load_dotenv
 import os
 import comp_builder
+import google_sheets
+import registration
 
 load_dotenv()
 
-token = os.getenv('DISCORD_TOKEN')
-
+token = os.getenv('DISCORD_TOKEN_TEST')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-
 bot = commands.Bot(command_prefix='!', intents=intents)
+worksheet = google_sheets.get_worksheet()
+
 
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
     print('------')
+
 
 @bot.command(name='create-comp')
 async def create_comp_from_message(context, comp_message_id: int, source_channel_id: int = None):
@@ -44,7 +47,14 @@ async def create_comp_from_message(context, comp_message_id: int, source_channel
         thread_name = party.split('\n')[0] + " thread"
         await m.create_thread(name=thread_name, auto_archive_duration=60, slowmode_delay=10)
 
+
+@bot.command(name='register')
+async def register(context, nickname: str):
+    await registration.register_user(context, nickname, worksheet)
+
+
 bot.add_listener(comp_builder.on_message_in_thread, 'on_message')
+
 
 @bot.command()
 async def clear(context):
@@ -52,5 +62,6 @@ async def clear(context):
         return
     
     await context.channel.purge()
+
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
