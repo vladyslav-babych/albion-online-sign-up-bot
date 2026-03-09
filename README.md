@@ -2,6 +2,7 @@
 
 - !clear
 - !create-comp [Comp message ID] [Comp channel ID]
+- !register [Albion Online nickname]
 
 ## Notes:
 
@@ -10,6 +11,14 @@
 - In order to copy **Message ID** or **Channel ID**, user has to have **Developer Mode** turned on in discord settings.
 
 - In order to use force sign out, user is required to have **Manage Messages** permission.
+
+## Character registration:
+
+**!register** command will add indicated nickname to the associated google sheet with the user **Discord ID**.  
+Upon successfull registration:  
+- Changes server nickname to one that was indicated during registration.  
+- Adds **Fed** role to the user that will grand access to main discord channels.  
+- Sets silver balance to **0**.
 
 ## Sign up logic:
 

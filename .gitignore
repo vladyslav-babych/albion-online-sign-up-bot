@@ -37,3 +37,8 @@ discord.log
 # Python virtualenvs
 env/
 venv/
+
+# Google service account credentials
+service_account.json
+google-service-account.json
+andrew-guild-6f839bc2ace2.json
