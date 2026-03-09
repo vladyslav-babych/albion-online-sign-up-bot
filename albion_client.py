@@ -3,6 +3,7 @@ import requests
 
 BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo'
 SEARCH_ENDPOINT = '/search?q='
+BATTLE_ENDPOINT = '/battles/' # + battle_id
 
 
 def _get_search_url(query):
