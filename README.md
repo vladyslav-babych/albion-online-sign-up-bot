@@ -2,7 +2,10 @@
 
 - !clear
 - !create-comp [Comp message ID] [Comp channel ID]
-- !register [Albion Online nickname]
+- !register [Albion nickname]
+- !bal
+- !bal-add [Albion nickname] [Amount]
+- !bal-remove [Albion nickname] [Amount]
 
 ## Notes:
 
@@ -88,3 +91,36 @@ Party BM
 11. Chariot
 12. Venom Basilisk
 ```
+
+## Balances:
+
+- In order to check your balance, use the **!bal** command. It will find first mention of your **Discord ID** in associated spreadsheet and return value stored in the **Silver** column.
+*Example:*  
+```
+!bal
+```
+
+- In order to add balance to the user, use **!bal-add [Albion nickname] [Amount]** command. It takes 2 parameters: **Albion nickname** and **Amount**. It will find first mention of **Albion nickname** in associated spreadsheet, read value stored in the **Silver** column, and update **Silver** column by adding **Amount** to current **Silver** value.
+*Example:*  
+```
+!bal-add Otaman 1000000
+```
+
+- In order to remove balance from the user, use **!bal-remove [Albion nickname] [Amount]** command. It takes 2 parameters: **Albion nickname** and **Amount**. It will find first mention of **Albion nickname** in associated spreadsheet, read value stored in the **Silver** column, and update **Silver** column by deducting **Amount** from current **Silver** value.
+*Example:*  
+```
+!bal-remove Otaman 1000000
+```
+
+*Notes:*  
+- Balances cannot be lower than 0  
+- If **Amount** is not an integer value, command will not work and send a warning message
+- If **Amount** is an integer value but < 0, command will not work and send a warning message
+
+## How to set up and link Google Sheet:
+
+- *TODO*
+
+## How to set up Bot:
+
+- *TODO*

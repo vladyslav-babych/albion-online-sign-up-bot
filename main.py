@@ -6,6 +6,7 @@ import os
 import comp_builder
 import google_sheets
 import registration
+import balance
 
 load_dotenv()
 
@@ -16,6 +17,10 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 worksheet = google_sheets.get_worksheet()
+
+
+async def is_admin(member):
+    return any(role.permissions.administrator for role in member.roles)
 
 
 @bot.event
@@ -53,12 +58,54 @@ async def register(context, nickname: str):
     await registration.register_user(context, nickname, worksheet)
 
 
+@bot.command(name='bal')
+async def get_balance(context, nickname: str = None):
+    await balance.get_balance(context, worksheet, nickname)
+
+
+@bot.command(name='bal-add')
+async def add_balance(context, nickname: str, amount: str):
+    if not await is_admin(context.author):
+        await context.reply("You don't have permission to use this command.")
+        return
+    try:
+        amount_int = int(amount)
+    except ValueError:
+        await context.reply("Amount must be an integer.")
+        return
+
+    if amount_int < 0:
+        await context.reply("Amount must be >= 0.")
+        return
+
+    await balance.add_balance(context, worksheet, nickname, amount_int)
+
+
+@bot.command(name='bal-remove')
+async def remove_balance(context, nickname: str, amount: str):
+    if not await is_admin(context.author):
+        await context.reply("You don't have permission to use this command.")
+        return
+    try:
+        amount_int = int(amount)
+    except ValueError:
+        await context.reply("Amount must be an integer.")
+        return
+
+    if amount_int < 0:
+        await context.reply("Amount must be >= 0.")
+        return
+
+    await balance.remove_balance(context, worksheet, nickname, amount_int)
+
+
 bot.add_listener(comp_builder.on_message_in_thread, 'on_message')
 
 
 @bot.command()
 async def clear(context):
-    if not comp_builder.has_manage_messages_permission(context.message):
+    if not await is_admin(context.author):
+        await context.reply("You don't have permission to use this command.")
         return
     
     await context.channel.purge()
