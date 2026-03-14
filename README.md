@@ -19,7 +19,7 @@ Discord bot for Albion guild operations: registration, party comp management, lo
 pip install -r requirements.txt
 ```
 
-3. Set bot token in environment (used by code as `DISCORD_TOKEN_TEST`).
+3. Set bot token in environment (used by code as `DISCORD_TOKEN`).
 4. Run:
 
 ```bash
