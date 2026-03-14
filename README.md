@@ -30,6 +30,13 @@ python main.py
 	 - Run `/bot-setup`
 	 - Run `/bot-link-google-sheet`
 
+## Security warning
+
+- Service account credentials you provide via `/bot-link-google-sheet` are stored as local JSON files in `google_sheet_credentials/`.
+- The bot owner/operator has access to these credential files.
+- Set up and use this bot at your own risk.
+- Use a dedicated, least-privilege Google service account only for this bot.
+
 ## Commands
 
 ### Prefix commands
