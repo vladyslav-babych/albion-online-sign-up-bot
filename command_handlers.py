@@ -18,6 +18,18 @@ def _parse_csv_names(raw_value: str) -> list[str]:
     return [value.strip() for value in raw_value.split(',') if value.strip()]
 
 
+def _has_any_named_role(member: discord.Member, role_names: list[str]) -> bool:
+    normalized = {name.strip().lower() for name in role_names if name.strip()}
+    if not normalized:
+        return False
+    return any(role.name.lower() in normalized for role in member.roles)
+
+
+def _has_economy_access(member: discord.Member, guild_id: int) -> bool:
+    economy_roles = guild_settings.get_economy_manager_roles(guild_id)
+    return _has_any_named_role(member, economy_roles)
+
+
 async def handle_create_comp_from_message(bot, context, comp_message_id: int, source_channel_id: int = None):
     await context.message.delete()
 
@@ -93,20 +105,18 @@ async def handle_update_config_slash(bot, interaction: discord.Interaction):
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
-    creds_info = google_sheet_credentials_store.get_credentials_info(interaction.guild.id)
-    current_google_sheet_name = creds_info.get("google_sheet_name", "Not configured yet") if creds_info else "Not configured yet"
-
     menu_text = (
         "## Which configuration you want to change?\n\n"
         "(1) Guild name\n"
         "(2) Caller role(s)\n"
-        "(3) Member role\n"
-        "(4) Credentials file\n"
-        f"(5) Google Sheet name: {current_google_sheet_name}\n"
-        "(6) Players Worksheet name\n"
-        "(7) Lootsplit History Worksheet name\n"
-        "(8) Balance History Worksheet name\n"
-        "(9) Exit"
+        "(3) Economy Manager role(s)\n"
+        "(4) Member role\n"
+        "(5) Credentials file\n"
+        "(6) Google Sheet name\n"
+        "(7) Players Worksheet name\n"
+        "(8) Lootsplit History Worksheet name\n"
+        "(9) Balance History Worksheet name\n"
+        "(10) Exit"
     )
 
     await interaction.response.send_message(menu_text)
@@ -127,27 +137,28 @@ async def handle_update_config_slash(bot, interaction: discord.Interaction):
 
     selection_raw = selection_message.content.strip()
     if not selection_raw.isdigit():
-        await interaction.followup.send("Invalid selection. Send a number from 1 to 9.")
+        await interaction.followup.send("Invalid selection. Send a number from 1 to 10.")
         return
 
     selection = int(selection_raw)
-    if selection < 1 or selection > 9:
-        await interaction.followup.send("Invalid selection. Send a number from 1 to 9.")
+    if selection < 1 or selection > 10:
+        await interaction.followup.send("Invalid selection. Send a number from 1 to 10.")
         return
 
-    if selection == 9:
+    if selection == 10:
         await interaction.followup.send("Configuration update cancelled.")
         return
 
     option_labels = {
         1: "Guild name",
         2: "Caller role(s)",
-        3: "Member role",
-        4: "Credentials file",
-        5: "Google Sheet name",
-        6: "Players Worksheet name",
-        7: "Lootsplit History Worksheet name",
-        8: "Balance History Worksheet name",
+        3: "Economy Manager role(s)",
+        4: "Member role",
+        5: "Credentials file",
+        6: "Google Sheet name",
+        7: "Players Worksheet name",
+        8: "Lootsplit History Worksheet name",
+        9: "Balance History Worksheet name",
     }
 
     label = option_labels[selection]
@@ -164,7 +175,7 @@ async def handle_update_config_slash(bot, interaction: discord.Interaction):
         await interaction.followup.send("Value cannot be empty.")
         return
 
-    if selection in (1, 2, 3):
+    if selection in (1, 2, 3, 4):
         current_guild_name = guild_settings.get_target_guild(interaction.guild.id)
         if not current_guild_name:
             await interaction.followup.send("This server is not configured yet. Run **/bot-setup** first.")
@@ -172,9 +183,11 @@ async def handle_update_config_slash(bot, interaction: discord.Interaction):
 
         current_member_role = guild_settings.get_member_role(interaction.guild.id)
         current_caller_roles = ", ".join(guild_settings.get_caller_roles(interaction.guild.id))
+        current_economy_manager_roles = ", ".join(guild_settings.get_economy_manager_roles(interaction.guild.id))
 
         updated_guild_name = current_guild_name
         updated_caller_roles = current_caller_roles
+        updated_economy_manager_roles = current_economy_manager_roles
         updated_member_role = current_member_role
 
         if selection == 1:
@@ -188,6 +201,8 @@ async def handle_update_config_slash(bot, interaction: discord.Interaction):
         elif selection == 2:
             updated_caller_roles = new_value
         elif selection == 3:
+            updated_economy_manager_roles = new_value
+        elif selection == 4:
             updated_member_role = new_value
 
         guild_settings.set_target_guild(
@@ -195,14 +210,15 @@ async def handle_update_config_slash(bot, interaction: discord.Interaction):
             updated_guild_name,
             updated_member_role,
             updated_caller_roles,
+            updated_economy_manager_roles,
         )
     else:
         link_field_by_option = {
-            4: "credentials_file",
-            5: "google_sheet_name",
-            6: "google_worksheet_name",
-            7: "lootsplit_history_worksheet_name",
-            8: "balance_history_worksheet_name",
+            5: "credentials_file",
+            6: "google_sheet_name",
+            7: "google_worksheet_name",
+            8: "lootsplit_history_worksheet_name",
+            9: "balance_history_worksheet_name",
         }
         target_field = link_field_by_option[selection]
         updated, update_message = google_sheet_credentials_store.update_credentials_link_field(
@@ -233,6 +249,15 @@ async def handle_lootsplit_slash(
 ):
     if interaction.guild is None:
         await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
+        return
+
+    if not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    has_access = await globals.is_admin(interaction.user) or _has_economy_access(interaction.user, interaction.guild.id)
+    if not has_access:
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
     await interaction.response.defer(thinking=True)
@@ -402,7 +427,12 @@ async def handle_bal_add_slash(
         await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
         return
 
-    if not isinstance(interaction.user, discord.Member) or not await globals.is_admin(interaction.user):
+    if not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    has_access = await globals.is_admin(interaction.user) or _has_economy_access(interaction.user, interaction.guild.id)
+    if not has_access:
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
@@ -432,19 +462,23 @@ async def handle_bal_add_slash(
     officer_result = balance.find_player_by_discord_id(all_rows, interaction.user.id)
     officer_name = officer_result[1] if officer_result else interaction.user.display_name
 
-    target_result = balance.find_player_by_discord_id(all_rows, member.id)
-    if target_result is None:
-        await interaction.followup.send(f"{member.mention} is not registered in the Players worksheet.")
-        return
-
-    target_row_index, target_nickname, current_silver = target_result
-    updated_silver = current_silver + amount_int
-
     try:
-        players_worksheet.update_cell(target_row_index, balance.COL_SILVER, str(updated_silver))
+        target_update = balance.update_member_balance_by_discord_id(
+            players_worksheet,
+            all_rows,
+            member.id,
+            amount_int,
+            clamp_min_zero=False,
+        )
     except Exception:
         await interaction.followup.send("Failed to update balance. Try again.")
         return
+
+    if target_update is None:
+        await interaction.followup.send(f"{member.mention} is not registered in the Players worksheet.")
+        return
+
+    target_nickname, updated_silver = target_update
 
     date_utc = datetime.now(timezone.utc).strftime("%m/%d/%y %H:%M UTC")
     history_note = ""
@@ -471,7 +505,12 @@ async def handle_bal_remove_slash(
         await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
         return
 
-    if not isinstance(interaction.user, discord.Member) or not await globals.is_admin(interaction.user):
+    if not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    has_access = await globals.is_admin(interaction.user) or _has_economy_access(interaction.user, interaction.guild.id)
+    if not has_access:
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
@@ -501,19 +540,23 @@ async def handle_bal_remove_slash(
     officer_result = balance.find_player_by_discord_id(all_rows, interaction.user.id)
     officer_name = officer_result[1] if officer_result else interaction.user.display_name
 
-    target_result = balance.find_player_by_discord_id(all_rows, member.id)
-    if target_result is None:
-        await interaction.followup.send(f"{member.mention} is not registered in the Players worksheet.")
-        return
-
-    target_row_index, target_nickname, current_silver = target_result
-    updated_silver = max(current_silver - amount_int, 0)
-
     try:
-        players_worksheet.update_cell(target_row_index, balance.COL_SILVER, str(updated_silver))
+        target_update = balance.update_member_balance_by_discord_id(
+            players_worksheet,
+            all_rows,
+            member.id,
+            -amount_int,
+            clamp_min_zero=True,
+        )
     except Exception:
         await interaction.followup.send("Failed to update balance. Try again.")
         return
+
+    if target_update is None:
+        await interaction.followup.send(f"{member.mention} is not registered in the Players worksheet.")
+        return
+
+    target_nickname, updated_silver = target_update
 
     date_utc = datetime.now(timezone.utc).strftime("%m/%d/%y %H:%M UTC")
     history_note = ""

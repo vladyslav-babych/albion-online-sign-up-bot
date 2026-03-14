@@ -11,6 +11,7 @@ def _apply_server_setup(
     target_guild_name: str,
     member_role_name: str = "Member",
     caller_role_name: str = "Caller",
+    economy_manager_role_name: str = "Economy Manager",
 ) -> Tuple[bool, str]:
     target_guild_name = target_guild_name.strip()
 
@@ -26,7 +27,13 @@ def _apply_server_setup(
             f"If **{target_guild_name}** is your guild, please contact bot owner directly to resolve this conflict.",
         )
 
-    guild_settings.set_target_guild(discord_server_id, target_guild_name, member_role_name, caller_role_name)
+    guild_settings.set_target_guild(
+        discord_server_id,
+        target_guild_name,
+        member_role_name,
+        caller_role_name,
+        economy_manager_role_name,
+    )
     return (
         True,
         f"Setup saved. Discord server ID **{discord_server_id}** is now mapped to the guild **{target_guild_name}**.",
@@ -38,6 +45,7 @@ def _build_bot_configuration_message(discord_server_id: int) -> str:
 
     guild_name = guild_settings.get_target_guild(discord_server_id) or not_configured
     caller_roles = ", ".join(guild_settings.get_caller_roles(discord_server_id)) or "Caller"
+    economy_manager_roles = ", ".join(guild_settings.get_economy_manager_roles(discord_server_id)) or "Economy Manager"
     member_role = guild_settings.get_member_role(discord_server_id) or "Member"
 
     creds_info = google_sheet_credentials_store.get_credentials_info(discord_server_id)
@@ -61,6 +69,7 @@ def _build_bot_configuration_message(discord_server_id: int) -> str:
         "## Bot configuration:\n\n"
         f"**Guild name:** {guild_name}\n\n"
         f"**Caller role(s):** {caller_roles}\n\n"
+        f"**Economy Manager role(s):** {economy_manager_roles}\n\n"
         f"**Member role:** {member_role}\n\n"
         f"**Credentials file:** {credentials_file}\n\n"
         f"**Google Sheet name:** {google_sheet_name}\n\n"
@@ -119,6 +128,12 @@ class BotSetupModal(discord.ui.Modal, title='Bot setup'):
         required=False,
         max_length=200,
     )
+    economy_manager_role_name = discord.ui.TextInput(
+        label='Economy Manager Role Name(s)',
+        placeholder='Default: Economy Manager. Example: Economy Manager, Banker',
+        required=False,
+        max_length=200,
+    )
     member_role_name = discord.ui.TextInput(
         label='Member Role Name',
         placeholder='Default: Member. Role name MUST match.',
@@ -140,6 +155,7 @@ class BotSetupModal(discord.ui.Modal, title='Bot setup'):
             str(self.target_guild_name).strip(),
             str(self.member_role_name).strip(),
             str(self.caller_role_name).strip() or "Caller",
+            str(self.economy_manager_role_name).strip() or "Economy Manager",
         )
         if not success:
             await interaction.response.send_message(message, ephemeral=True)
