@@ -1,6 +1,8 @@
 import discord
 import albion_client as client
 import google_sheets
+import guild_settings
+from typing import Optional
 
 
 async def sync_discord_nickname(member: discord.Member, albion_nickname: str):
@@ -16,8 +18,12 @@ async def add_member_role(member: discord.Member, role_name: str = 'Member'):
     await member.add_roles(role, reason=f'Add {role_name} role after registration')
 
 
-async def register_user(context, nickname: str, worksheet):
-    target_guild_name = 'Federation'
+async def register_user(context, nickname: str, worksheet, target_guild_name: Optional[str]):
+    if not target_guild_name:
+        await context.send(
+            "This server is not configured yet. Ask an admin to run **/bot-setup** first."
+        )
+        return
 
     player_info = client.get_player_by_nickname(nickname)
     if player_info is None:
@@ -25,7 +31,6 @@ async def register_user(context, nickname: str, worksheet):
         return
 
     discord_id = context.author.id
-    player_id = player_info['Id']
     player_name = player_info['Name']
     player_guild = player_info['GuildName']
 
@@ -52,8 +57,9 @@ async def register_user(context, nickname: str, worksheet):
         await context.send(f"Character **{player_name}** is already registered.")
         return
 
-    google_sheets.add_user_to_worksheet(worksheet, discord_id, player_id, player_name, silver=0)
+    google_sheets.add_user_to_worksheet(worksheet, discord_id, player_name, silver=0)
 
     await sync_discord_nickname(context.author, player_name)
-    await add_member_role(context.author, role_name='Fed')
+    member_role_name = guild_settings.get_member_role(context.guild.id)
+    await add_member_role(context.author, member_role_name)
     await context.send(f"**{player_name}** was registered successfully.")

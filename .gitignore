@@ -42,3 +42,7 @@ venv/
 service_account.json
 google-service-account.json
 andrew-guild-6f839bc2ace2.json
+google_sheet_credentials/
+
+# Local bot data
+guilds.json
