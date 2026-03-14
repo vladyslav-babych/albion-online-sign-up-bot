@@ -7,7 +7,7 @@ Discord bot for Albion guild operations: registration, party comp management, lo
 - `main.py` contains only bot bootstrap + command routing.
 - `command_handlers.py` contains all command logic.
 - `modals.py` contains setup/link modals and persistent configuration message handling.
-- `guild_settings.py` stores per-server bot config (`guild_name`, `caller_role_name`, `member_role_name`, config-message ids).
+- `guild_settings.py` stores per-server bot config (`guild_name`, `caller_role_name`, `economy_manager_role_name`, `member_role_name`, config-message ids).
 - `google_sheet_credentials_store.py` stores Google Sheet link metadata per server.
 
 ## Setup
@@ -60,7 +60,9 @@ python main.py
 ## Permissions model
 
 - Admin-only:
-	- `/bot-setup`, `/bot-link-google-sheet`, `/update-config`, `/bal-add`, `/bal-remove`, `!bot-remove`, `!clear`
+	- `/bot-setup`, `/bot-link-google-sheet`, `/update-config`, `!bot-remove`, `!clear`
+- Economy operations (`/lootsplit`, `/bal-add`, `/bal-remove`):
+	- allowed for Admins OR members with configured Economy Manager role(s)
 - Comp officer actions (`!create-comp`, forced sign-up/sign-out in party threads):
 	- allowed for Admins OR members with configured Caller role(s)
 - `!register`, `!bal`, and normal thread self sign-up/sign-out are available without admin requirement.
@@ -73,6 +75,7 @@ Configures per-server values:
 
 - Guild name
 - Caller role name(s) (default: `Caller`, supports CSV like `Caller, War Master`)
+- Economy Manager role name(s) (default: `Economy Manager`, supports CSV like `Economy Manager, Banker`)
 - Member role name (default: `Member`)
 
 After setup, bot posts/updates a persistent **Bot configuration** message in the channel.
@@ -102,13 +105,14 @@ Supported fields:
 
 1. Guild name
 2. Caller role(s)
-3. Member role
-4. Credentials file
-5. Google Sheet name
-6. Players Worksheet name
-7. Lootsplit History Worksheet name
-8. Balance History Worksheet name
-9. Exit
+3. Economy Manager role(s)
+4. Member role
+5. Credentials file
+6. Google Sheet name
+7. Players Worksheet name
+8. Lootsplit History Worksheet name
+9. Balance History Worksheet name
+10. Exit
 
 Safety checks:
 

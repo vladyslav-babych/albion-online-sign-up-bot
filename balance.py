@@ -1,4 +1,3 @@
-import globals
 import gspread
 import time
 from typing import Optional
@@ -45,6 +44,26 @@ def find_player_by_discord_id(rows: list, discord_id: int) -> Optional[tuple[int
             raw_silver = row[2].strip() if len(row) >= 3 else ""
             return row_index, nickname, _parse_silver_value(raw_silver)
     return None
+
+
+def update_member_balance_by_discord_id(
+    worksheet,
+    rows: list,
+    discord_id: int,
+    delta: int,
+    clamp_min_zero: bool = False,
+) -> Optional[tuple[str, int]]:
+    target_result = find_player_by_discord_id(rows, discord_id)
+    if target_result is None:
+        return None
+
+    target_row_index, target_nickname, current_silver = target_result
+    updated_silver = current_silver + delta
+    if clamp_min_zero:
+        updated_silver = max(updated_silver, 0)
+
+    worksheet.update_cell(target_row_index, COL_SILVER, str(updated_silver))
+    return target_nickname, updated_silver
 
 
 def _is_quota_error(error: Exception) -> bool:
@@ -125,19 +144,6 @@ def add_balances_for_lootsplit_batch(worksheet, participants: list[str], amount:
     return credited, missing_participants
 
 
-def add_balance_for_lootsplit(worksheet, nickname: str, amount: int) -> tuple[str, int]:
-    row_index = _find_first_matched_target(worksheet, COL_ALBION_NICKNAME, nickname)
-    if row_index is None:
-        raise ValueError(f"Character **{nickname}** not found.")
-
-    current_silver = _read_silver(worksheet, row_index)
-    updated_silver = current_silver + amount
-    worksheet.update_cell(row_index, COL_SILVER, str(updated_silver))
-
-    discord_id = worksheet.cell(row_index, COL_DISCORD_ID).value
-    return str(discord_id), updated_silver
-
-
 async def get_balance(context, worksheet, nickname: str = None):
     try:
         if nickname is None:
@@ -153,59 +159,5 @@ async def get_balance(context, worksheet, nickname: str = None):
 
         silver = _read_silver(worksheet, row_index)
         await context.send(f"{mention} balance: **{silver}** :coin:")
-    except Exception as e:
-        await context.send(f"Error: {e}")
-
-
-async def remove_balance(context, worksheet, nickname: str, amount: int):
-    if not await globals.is_admin(context.author):
-        await context.reply("You don't have permission to use this command.")
-        return
-    try:
-        amount_int = int(amount)
-    except ValueError:
-        await context.reply("Amount must be an integer.")
-        return
-
-    if amount_int < 0:
-        await context.reply("Amount must be >= 0.")
-        return
-    try:
-        row_index = _find_first_matched_target(worksheet, COL_ALBION_NICKNAME, nickname)
-        if row_index is None:
-            await context.send(f"Character **{nickname}** not found.")
-            return
-
-        current_silver = _read_silver(worksheet, row_index)
-        updated_silver = max(current_silver - amount_int, 0)     
-        worksheet.update_cell(row_index, COL_SILVER, str(updated_silver))
-        
-        discord_id = worksheet.cell(row_index, COL_DISCORD_ID).value
-        mention = f"<@{discord_id}>"
-        await context.send(f"{mention} balance: **{updated_silver}** :coin:")
-
-    except Exception as e:
-        await context.send(f"Error: {e}")
-
-
-async def add_balance(context, worksheet, nickname: str, amount: int):
-    if not await globals.is_admin(context.author):
-        await context.reply("You don't have permission to use this command.")
-        return
-    try:
-        amount_int = int(amount)
-    except ValueError:
-        await context.reply("Amount must be an integer.")
-        return
-
-    if amount_int < 0:
-        await context.reply("Amount must be >= 0.")
-        return
-
-    try:
-        discord_id, updated_silver = add_balance_for_lootsplit(worksheet, nickname, amount_int)
-        mention = f"<@{discord_id}>"
-        await context.send(f"{mention} balance: **{updated_silver}** :coin:")
-
     except Exception as e:
         await context.send(f"Error: {e}")

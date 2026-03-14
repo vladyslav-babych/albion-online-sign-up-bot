@@ -38,6 +38,7 @@ def set_target_guild(
     target_guild_name: str,
     member_role_name: str = "Member",
     caller_role_name: str = "Caller",
+    economy_manager_role_name: str = "Economy Manager",
 ) -> None:
     config = _load_config()
     server_key = str(discord_server_id)
@@ -46,6 +47,7 @@ def set_target_guild(
     base_entry["guild_name"] = target_guild_name.strip()
     base_entry["member_role_name"] = member_role_name.strip() or "Member"
     base_entry["caller_role_name"] = caller_role_name.strip() or "Caller"
+    base_entry["economy_manager_role_name"] = economy_manager_role_name.strip() or "Economy Manager"
     config[server_key] = base_entry
     _save_config(config)
 
@@ -74,6 +76,17 @@ def get_caller_roles(discord_server_id: int) -> list[str]:
     raw = (entry.get("caller_role_name", "") or "").strip()
     if not raw:
         return ["Caller"]
+    return [r.strip() for r in raw.split(",") if r.strip()]
+
+
+def get_economy_manager_roles(discord_server_id: int) -> list[str]:
+    config = _load_config()
+    entry = config.get(str(discord_server_id))
+    if not entry:
+        return ["Economy Manager"]
+    raw = (entry.get("economy_manager_role_name", "") or "").strip()
+    if not raw:
+        return ["Economy Manager"]
     return [r.strip() for r in raw.split(",") if r.strip()]
 
 

@@ -95,28 +95,6 @@ def get_lootsplit_history_headers() -> list[str]:
     return LOOTSPLIT_HISTORY_HEADERS.copy()
 
 
-def add_lootsplit_history_row(
-	worksheet,
-	battleboard_id: str,
-	date_utc: str,
-	officer: str,
-	content_name: str,
-	caller: str,
-	participant: str,
-	lootsplit: str,
-):
-	row_values = [
-		str(battleboard_id),
-		str(date_utc),
-		str(officer),
-		str(content_name),
-		str(caller),
-		str(participant),
-		str(lootsplit),
-	]
-	_call_with_backoff(lambda: worksheet.append_row(row_values, value_input_option="RAW"))
-
-
 def add_lootsplit_history_rows(worksheet, rows: list[list[str]]):
 	if not rows:
 		return
