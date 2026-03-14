@@ -1,9 +1,21 @@
 import discord
 import re
+import guild_settings
 
-# Sign up and sign out logic
-def has_manage_messages_permission(context):
-    return context.channel.permissions_for(context.author).manage_messages
+
+def is_admin(member: discord.Member) -> bool:
+	return any(role.permissions.administrator for role in member.roles)
+
+
+def has_caller_role(member: discord.Member, caller_roles: list[str]) -> bool:
+	if not caller_roles:
+		return False
+	normalized = {r.strip().lower() for r in caller_roles}
+	return any(role.name.lower() in normalized for role in member.roles)
+
+
+def has_caller_access(member: discord.Member, caller_roles: list[str]) -> bool:
+	return is_admin(member) or has_caller_role(member, caller_roles)
 
 def is_party_thread(channel: discord.abc.Messageable) -> bool:
 	return isinstance(channel, discord.Thread) and channel.name.startswith("Party ") and channel.name.endswith(" thread")
@@ -27,9 +39,9 @@ def find_first_mention(role_line: str):
 async def update_comp_text(original_comp_text, roles):
 	await original_comp_text.edit(content='\n'.join(roles))
 
-async def officer_forced_signout(message, roles, original_comp_text, role_number: int):
+async def officer_forced_signout(message, roles, original_comp_text, role_number: int, caller_roles: list[str] = None):
 	member = message.author
-	if not has_manage_messages_permission(message):
+	if not has_caller_access(member, caller_roles or []):
 		return
 	idx = find_role_index_by_number(roles, role_number)
 	if idx is None:
@@ -83,9 +95,11 @@ async def on_message_in_thread(message):
 		return
 	roles = parse_roles(original_comp_text.content)
 
+	caller_roles = guild_settings.get_caller_roles(message.guild.id) if message.guild else []
+
 	# Officer forced sign-out
 	if user_text.startswith('-') and user_text[1:].isdigit():
-		await officer_forced_signout(message, roles, original_comp_text, int(user_text[1:]))
+		await officer_forced_signout(message, roles, original_comp_text, int(user_text[1:]), caller_roles)
 		return
 
 	# Sign up by number
@@ -94,7 +108,7 @@ async def on_message_in_thread(message):
 		return
 
 	# Officer forced sign-up with mention
-	if has_manage_messages_permission(message):
+	if has_caller_access(message.author, caller_roles):
 		match = re.search(r'(<@!?[0-9]+>)\s+(\d+)', user_text)
 		if match:
 			mention = match.group(1)
