@@ -7,12 +7,13 @@ from dotenv import load_dotenv
 
 import command_handlers
 import comp_builder
+import tickets
 
 
 load_dotenv()
 
 
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv('DISCORD_TOKEN_TEST')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
 intents.message_content = True
@@ -26,6 +27,7 @@ async def on_ready():
     global slash_commands_synced
 
     if not slash_commands_synced:
+        tickets.register_persistent_views(bot)
         await bot.tree.sync()
         slash_commands_synced = True
 
@@ -56,6 +58,11 @@ async def bot_setup_slash(interaction: discord.Interaction):
 @bot.tree.command(name='bot-link-google-sheet', description='Link Google credentials JSON to this server')
 async def bot_link_google_sheet_slash(interaction: discord.Interaction):
     await command_handlers.handle_bot_link_google_sheet_slash(interaction)
+
+
+@bot.tree.command(name='tickets-setup', description='Configure ticket panels for guild applications')
+async def tickets_setup_slash(interaction: discord.Interaction):
+    await tickets.handle_tickets_setup(bot, interaction)
 
 
 @bot.tree.command(name='update-config', description='Update bot configuration values')

@@ -52,6 +52,7 @@ python main.py
 
 - `/bot-setup`
 - `/bot-link-google-sheet`
+- `/tickets-setup`
 - `/update-config`
 - `/lootsplit`
 - `/bal-add`
@@ -60,7 +61,7 @@ python main.py
 ## Permissions model
 
 - Admin-only:
-	- `/bot-setup`, `/bot-link-google-sheet`, `/update-config`, `!bot-remove`, `!clear`
+	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `!bot-remove`, `!clear`
 - Economy operations (`/lootsplit`, `/bal-add`, `/bal-remove`):
 	- allowed for Admins OR members with configured Economy Manager role(s)
 - Comp officer actions (`!create-comp`, forced sign-up/sign-out in party threads):
@@ -118,6 +119,53 @@ Safety checks:
 
 - Guild name update is blocked if already used by another server.
 - Credentials file update requires the file to exist in `google_sheet_credentials/`.
+
+## Ticket system
+
+### `/tickets-setup`
+
+Admin command used to configure guild application ticket panels.
+
+Main setup entry has 2 buttons:
+
+- `Create Panel`
+- `Manage Panels`
+
+### Create Panel flow
+
+Panel creation uses 6 steps:
+
+1. Set panel name
+2. Select management team role(s)
+3. Select ticket category
+4. Select panel destination channel
+5. Set panel message and ticket opening message
+6. Review summary and finish
+
+The created panel contains an `Open Ticket` button.
+
+The message step opens a modal where admin can customize:
+
+- the panel embed message shown before opening a ticket
+- the opening message shown inside newly created tickets
+
+### Ticket behavior
+
+- Clicking `Open Ticket` creates a new text channel under the selected category.
+- Ticket names are generated as `ticket-0001`, `ticket-0002`, and so on.
+- Only the applicant and selected management team can view the ticket.
+- The ticket contains a `Close Ticket` button.
+- When management team closes the ticket:
+	- channel is renamed to `closed-0001`
+	- applicant loses send permission
+
+### Manage Panels
+
+Manage Panels lets admin:
+
+- view configured panels
+- send a selected panel again to its configured destination channel
+- delete a selected panel
 
 ## Registration and balances
 
@@ -179,7 +227,7 @@ In `Party ... thread` threads:
 
 ## Data files
 
-- `guilds.json`:
+- `configs/guilds_config.json`:
 	- guild mapping + role config + persistent config message references
 - `google_sheet_credentials/credentials_links.json`:
 	- per-server sheet and worksheet mapping
