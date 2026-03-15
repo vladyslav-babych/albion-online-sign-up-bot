@@ -102,6 +102,15 @@ def _format_role_mentions(guild: discord.Guild, role_ids: list[int]) -> str:
 	return ", ".join(mentions) if mentions else "Not selected"
 
 
+def _format_role_names(guild: discord.Guild, role_ids: list[int]) -> str:
+	names = []
+	for role_id in role_ids:
+		role = guild.get_role(int(role_id))
+		if role is not None:
+			names.append(role.name)
+	return ", ".join(names) if names else "Not selected"
+
+
 def _format_category_name(guild: discord.Guild, category_id: Optional[int]) -> str:
 	if not category_id:
 		return "Not selected"
@@ -756,14 +765,14 @@ class TicketOpenView(discord.ui.View):
 			topic=_build_ticket_topic(str(panel.get("id")), interaction.user.id, ticket_number),
 		)
 
-		management_mentions = _format_role_mentions(interaction.guild, panel.get("management_role_ids", []))
+		management_names = _format_role_names(interaction.guild, panel.get("management_role_ids", []))
 		embed = discord.Embed(
 			title=f"Ticket {ticket_number:04d}",
 			description=panel.get("ticket_message") or _get_default_ticket_message(),
 		)
 		embed.add_field(name="Applicant", value=interaction.user.mention, inline=False)
-		embed.add_field(name="Management team", value=management_mentions, inline=False)
-		await channel.send(content=f"{interaction.user.mention} {management_mentions}", embed=embed, view=TicketCloseView(self.bot))
+		embed.add_field(name="Management team", value=management_names, inline=False)
+		await channel.send(content=interaction.user.mention, embed=embed, view=TicketCloseView(self.bot))
 
 		await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True)
 
