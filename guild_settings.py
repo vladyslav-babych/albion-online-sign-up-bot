@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 
-_GUILDS_FILE = Path("guilds.json")
+_GUILDS_FILE = Path("configs/guilds_config.json")
 
 
 def _load_config() -> dict[str, dict]:

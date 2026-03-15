@@ -45,4 +45,4 @@ andrew-guild-6f839bc2ace2.json
 google_sheet_credentials/
 
 # Local bot data
-guilds.json
+configs/
