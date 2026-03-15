@@ -381,6 +381,7 @@ class TicketPanelSetupView(discord.ui.View):
 		if self.step == 1:
 			self.add_item(SetPanelNameButton())
 			self.add_item(SetupContinueButton())
+			self.add_item(CancelSetupButton())
 		elif self.step == 2:
 			self.add_item(ManagementRoleSelect())
 			self.add_item(SetupContinueButton())
@@ -443,6 +444,22 @@ class SetPanelMessagesButton(discord.ui.Button):
 		if not await view.ensure_owner(interaction):
 			return
 		await interaction.response.send_modal(PanelMessagesModal(view))
+
+
+class CancelSetupButton(discord.ui.Button):
+	def __init__(self):
+		super().__init__(label="Cancel Setup", style=discord.ButtonStyle.danger)
+
+	async def callback(self, interaction: discord.Interaction) -> None:
+		view = self.view
+		if not isinstance(view, TicketPanelSetupView):
+			return
+		if not await view.ensure_owner(interaction):
+			return
+		await interaction.response.edit_message(
+			embed=_build_home_embed(view.guild),
+			view=TicketsSetupHomeView(view.bot, view.user_id, view.guild),
+		)
 
 
 class SetupContinueButton(discord.ui.Button):
