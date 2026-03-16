@@ -512,11 +512,31 @@ class FinishPanelButton(discord.ui.Button):
 			await interaction.response.send_message("Configured panel destination channel was not found.", ephemeral=True)
 			return
 
+		bot_member = view.guild.me
+		if bot_member is None:
+			await interaction.response.send_message("Bot member information is unavailable. Please try again.", ephemeral=True)
+			return
+
+		channel_permissions = panel_destination_channel.permissions_for(bot_member)
+		if not channel_permissions.view_channel or not channel_permissions.send_messages or not channel_permissions.embed_links:
+			await interaction.response.send_message(
+				f"I don't have enough permissions to post in {panel_destination_channel.mention}. Please grant View Channel, Send Messages, and Embed Links.",
+				ephemeral=True,
+			)
+			return
+
 		panel_id = uuid4().hex[:10]
-		panel_message = await panel_destination_channel.send(
-			embed=_build_panel_embed(view.state["panel_name"], view.state["panel_message"]),
-			view=TicketOpenView(view.bot),
-		)
+		try:
+			panel_message = await panel_destination_channel.send(
+				embed=_build_panel_embed(view.state["panel_name"], view.state["panel_message"]),
+				view=TicketOpenView(view.bot),
+			)
+		except discord.Forbidden:
+			await interaction.response.send_message(
+				f"I couldn't post in {panel_destination_channel.mention} due to missing permissions.",
+				ephemeral=True,
+			)
+			return
 
 		panel = {
 			"id": panel_id,
@@ -608,10 +628,17 @@ class ResendPanelButton(discord.ui.Button):
 			or view.guild.get_channel(int(panel.get("panel_channel_id", 0) or 0))
 			or interaction.channel
 		)
-		panel_message = await panel_channel.send(
-			embed=_build_panel_embed(panel.get("panel_name", "Panel Name"), panel.get("panel_message") or _get_default_panel_message()),
-			view=TicketOpenView(view.bot),
-		)
+		try:
+			panel_message = await panel_channel.send(
+				embed=_build_panel_embed(panel.get("panel_name", "Panel Name"), panel.get("panel_message") or _get_default_panel_message()),
+				view=TicketOpenView(view.bot),
+			)
+		except discord.Forbidden:
+			await interaction.response.send_message(
+				f"I couldn't post the panel in {panel_channel.mention} due to missing permissions.",
+				ephemeral=True,
+			)
+			return
 		panel["panel_message_id"] = panel_message.id
 		panel["panel_channel_id"] = panel_message.channel.id
 		_save_panel(view.guild.id, panel)

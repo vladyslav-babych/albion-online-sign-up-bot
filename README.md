@@ -43,9 +43,8 @@ python main.py
 
 - `!create-comp <comp_message_id> <source_channel_id>`
 - `!get-participants <battle_ids>`
-- `!register <albion_nickname>`
 - `!bal [nickname]`
-- `!bot-remove`
+- `/bot-remove`
 - `!clear`
 
 ### Slash commands
@@ -54,6 +53,7 @@ python main.py
 - `/bot-link-google-sheet`
 - `/tickets-setup`
 - `/update-config`
+- `/register`
 - `/lootsplit`
 - `/bal-add`
 - `/bal-remove`
@@ -61,12 +61,12 @@ python main.py
 ## Permissions model
 
 - Admin-only:
-	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `!bot-remove`, `!clear`
+	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `/bot-remove`, `!clear`
 - Economy operations (`/lootsplit`, `/bal-add`, `/bal-remove`):
 	- allowed for Admins OR members with configured Economy Manager role(s)
 - Comp officer actions (`!create-comp`, forced sign-up/sign-out in party threads):
 	- allowed for Admins OR members with configured Caller role(s)
-- `!register`, `!bal`, and normal thread self sign-up/sign-out are available without admin requirement.
+- `/register`, `!bal`, and normal thread self sign-up/sign-out are available without admin requirement.
 
 ## Bot setup and configuration
 
@@ -169,7 +169,7 @@ Manage Panels lets admin:
 
 ## Registration and balances
 
-### `!register <albion_nickname>`
+### `/register <character_name>`
 
 - Validates user against configured guild (Albion API check).
 - Adds row to Players worksheet with:

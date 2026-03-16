@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 import command_handlers
 import comp_builder
+import guild_settings
 import tickets
 
 
@@ -14,12 +15,41 @@ load_dotenv()
 
 
 token = os.getenv('DISCORD_TOKEN')
+BOT_RESTART_MESSAGE = os.getenv('BOT_RESTART_MESSAGE')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 slash_commands_synced = False
+
+
+async def _send_restart_notifications() -> None:
+    updates_channels = guild_settings.get_all_bot_updates_channels()
+
+    for guild_id, channel_id in updates_channels.items():
+        guild = bot.get_guild(guild_id)
+        if guild is None:
+            continue
+
+        channel = guild.get_channel(channel_id)
+        if channel is None:
+            try:
+                channel = await guild.fetch_channel(channel_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                continue
+
+        if not isinstance(channel, discord.TextChannel):
+            continue
+
+        me = guild.me
+        if me is not None and not channel.permissions_for(me).send_messages:
+            continue
+
+        try:
+            await channel.send(BOT_RESTART_MESSAGE)
+        except (discord.Forbidden, discord.HTTPException):
+            logging.warning("Failed to send restart message in guild %s channel %s", guild_id, channel_id)
 
 
 @bot.event
@@ -29,6 +59,7 @@ async def on_ready():
     if not slash_commands_synced:
         tickets.register_persistent_views(bot)
         await bot.tree.sync()
+        await _send_restart_notifications()
         slash_commands_synced = True
 
     print(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
@@ -45,9 +76,9 @@ async def get_battle_participants(context, battle_ids: str):
     await command_handlers.handle_get_battle_participants(context, battle_ids)
 
 
-@bot.command(name='register')
-async def register(context, nickname: str):
-    await command_handlers.handle_register(context, nickname)
+@bot.tree.command(name='register', description='Register your Albion character')
+async def register_slash(interaction: discord.Interaction, character_name: str):
+    await command_handlers.handle_register_slash(interaction, character_name)
 
 
 @bot.tree.command(name='bot-setup', description='Open setup modal for this server')
@@ -67,7 +98,7 @@ async def tickets_setup_slash(interaction: discord.Interaction):
 
 @bot.tree.command(name='update-config', description='Update bot configuration values')
 async def update_config_slash(interaction: discord.Interaction):
-    await command_handlers.handle_update_config_slash(bot, interaction)
+    await command_handlers.handle_update_config_slash(interaction)
 
 
 @bot.tree.command(name='lootsplit', description='Distribute lootsplit and save history rows')
@@ -91,9 +122,9 @@ async def lootsplit_slash(
     )
 
 
-@bot.command(name='bot-remove')
-async def bot_remove(context):
-    await command_handlers.handle_bot_remove(bot, context)
+@bot.tree.command(name='bot-remove', description='Remove this server configuration from the bot')
+async def bot_remove_slash(interaction: discord.Interaction):
+    await command_handlers.handle_bot_remove_slash(interaction)
 
 
 @bot.command(name='bal')
