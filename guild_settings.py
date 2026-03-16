@@ -120,6 +120,49 @@ def get_bot_configuration_message(discord_server_id: int) -> tuple[Optional[int]
     return channel_id, message_id
 
 
+def set_bot_updates_channel(discord_server_id: int, channel_id: int) -> None:
+    config = _load_config()
+    server_key = str(discord_server_id)
+    entry = config.get(server_key)
+    base_entry = entry.copy() if isinstance(entry, dict) else {}
+    base_entry["bot_updates_channel_id"] = str(channel_id)
+    config[server_key] = base_entry
+    _save_config(config)
+
+
+def get_bot_updates_channel(discord_server_id: int) -> Optional[int]:
+    config = _load_config()
+    entry = config.get(str(discord_server_id))
+    if not isinstance(entry, dict):
+        return None
+
+    raw_channel_id = entry.get("bot_updates_channel_id")
+    try:
+        return int(raw_channel_id) if raw_channel_id is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def get_all_bot_updates_channels() -> dict[int, int]:
+    config = _load_config()
+    result: dict[int, int] = {}
+
+    for server_id, entry in config.items():
+        if not isinstance(entry, dict):
+            continue
+
+        raw_channel_id = entry.get("bot_updates_channel_id")
+        try:
+            parsed_server_id = int(server_id)
+            parsed_channel_id = int(raw_channel_id)
+        except (TypeError, ValueError):
+            continue
+
+        result[parsed_server_id] = parsed_channel_id
+
+    return result
+
+
 def get_server_id_by_target_guild(target_guild_name: str) -> Optional[str]:
     config = _load_config()
     normalized_target = target_guild_name.strip().lower()

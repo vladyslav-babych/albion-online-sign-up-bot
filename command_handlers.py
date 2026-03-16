@@ -1,17 +1,18 @@
-import asyncio
 from datetime import datetime, timezone
 
 import discord
 
 import albion_client as client
 import balance
+from bot_remove import handle_bot_remove_slash
 import comp_builder
 import globals
-import google_sheet_credentials_store
 import google_sheets
 import guild_settings
 import registration
-from modals import BotSetupModal, GoogleSheetCredentialsModal, post_or_update_bot_configuration_message
+from bot_setup import BotSetupStepView, _build_bot_setup_step_embed
+from link_google_sheet import GoogleSheetLinkStepView, _build_google_sheet_link_step_embed
+from update_config_panel import UpdateConfigView, _build_update_config_embed
 
 
 def _parse_csv_names(raw_value: str) -> list[str]:
@@ -28,6 +29,19 @@ def _has_any_named_role(member: discord.Member, role_names: list[str]) -> bool:
 def _has_economy_access(member: discord.Member, guild_id: int) -> bool:
     economy_roles = guild_settings.get_economy_manager_roles(guild_id)
     return _has_any_named_role(member, economy_roles)
+
+
+class _InteractionMessageAdapter:
+    def __init__(self, interaction: discord.Interaction):
+        self._interaction = interaction
+        self.guild = interaction.guild
+        self.author = interaction.user
+
+    async def send(self, message: str):
+        if not self._interaction.response.is_done():
+            await self._interaction.response.send_message(message)
+        else:
+            await self._interaction.followup.send(message)
 
 
 async def handle_create_comp_from_message(bot, context, comp_message_id: int, source_channel_id: int = None):
@@ -64,12 +78,24 @@ async def handle_get_battle_participants(context, battle_ids: str):
     await client.get_battle_participants(context, battle_ids)
 
 
-async def handle_register(context, nickname: str):
-    target_guild_name = guild_settings.get_target_guild(context.guild.id)
-    worksheet = await google_sheets.get_server_worksheet_or_notice(context)
+async def handle_register_slash(interaction: discord.Interaction, character_name: str):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
+        return
+
+    if not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    interaction_context = _InteractionMessageAdapter(interaction)
+    target_guild_name = guild_settings.get_target_guild(interaction.guild.id)
+    worksheet = await google_sheets.get_server_worksheet_or_notice(interaction_context)
     if worksheet is None:
         return
-    await registration.register_user(context, nickname, worksheet, target_guild_name)
+
+    await registration.register_user(interaction_context, character_name, worksheet, target_guild_name)
 
 
 async def handle_bot_setup_slash(interaction: discord.Interaction):
@@ -81,7 +107,12 @@ async def handle_bot_setup_slash(interaction: discord.Interaction):
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.send_modal(BotSetupModal())
+    setup_view = BotSetupStepView(interaction.guild, interaction.user.id)
+    await interaction.response.send_message(
+        embed=_build_bot_setup_step_embed(setup_view),
+        view=setup_view,
+    )
+    setup_view.host_message = await interaction.original_response()
 
 
 async def handle_bot_link_google_sheet_slash(interaction: discord.Interaction):
@@ -93,10 +124,23 @@ async def handle_bot_link_google_sheet_slash(interaction: discord.Interaction):
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.send_modal(GoogleSheetCredentialsModal())
+    target_guild_name = guild_settings.get_target_guild(interaction.guild.id)
+    if not target_guild_name:
+        await interaction.response.send_message(
+            "This server is not configured yet. Run **/bot-setup** first.",
+            ephemeral=True,
+        )
+        return
+
+    setup_view = GoogleSheetLinkStepView(interaction.guild, interaction.user.id)
+    await interaction.response.send_message(
+        embed=_build_google_sheet_link_step_embed(setup_view),
+        view=setup_view,
+    )
+    setup_view.host_message = await interaction.original_response()
 
 
-async def handle_update_config_slash(bot, interaction: discord.Interaction):
+async def handle_update_config_slash(interaction: discord.Interaction):
     if interaction.guild is None or interaction.channel is None:
         await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
         return
@@ -105,137 +149,12 @@ async def handle_update_config_slash(bot, interaction: discord.Interaction):
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
 
-    menu_text = (
-        "## Which configuration you want to change?\n\n"
-        "(1) Guild name\n"
-        "(2) Caller role(s)\n"
-        "(3) Economy Manager role(s)\n"
-        "(4) Member role\n"
-        "(5) Credentials file\n"
-        "(6) Google Sheet name\n"
-        "(7) Players Worksheet name\n"
-        "(8) Lootsplit History Worksheet name\n"
-        "(9) Balance History Worksheet name\n"
-        "(10) Exit"
+    update_view = UpdateConfigView(interaction.guild, interaction.user.id)
+    await interaction.response.send_message(
+        embed=_build_update_config_embed(update_view),
+        view=update_view,
     )
-
-    await interaction.response.send_message(menu_text)
-
-    def message_check(message: discord.Message) -> bool:
-        return (
-            message.author.id == interaction.user.id
-            and message.guild is not None
-            and message.guild.id == interaction.guild.id
-            and message.channel.id == interaction.channel.id
-        )
-
-    try:
-        selection_message = await bot.wait_for("message", timeout=180.0, check=message_check)
-    except asyncio.TimeoutError:
-        await interaction.followup.send("Configuration update timed out.")
-        return
-
-    selection_raw = selection_message.content.strip()
-    if not selection_raw.isdigit():
-        await interaction.followup.send("Invalid selection. Send a number from 1 to 10.")
-        return
-
-    selection = int(selection_raw)
-    if selection < 1 or selection > 10:
-        await interaction.followup.send("Invalid selection. Send a number from 1 to 10.")
-        return
-
-    if selection == 10:
-        await interaction.followup.send("Configuration update cancelled.")
-        return
-
-    option_labels = {
-        1: "Guild name",
-        2: "Caller role(s)",
-        3: "Economy Manager role(s)",
-        4: "Member role",
-        5: "Credentials file",
-        6: "Google Sheet name",
-        7: "Players Worksheet name",
-        8: "Lootsplit History Worksheet name",
-        9: "Balance History Worksheet name",
-    }
-
-    label = option_labels[selection]
-    await interaction.followup.send(f"Type new value for the **{label}**:")
-
-    try:
-        value_message = await bot.wait_for("message", timeout=180.0, check=message_check)
-    except asyncio.TimeoutError:
-        await interaction.followup.send("Configuration update timed out.")
-        return
-
-    new_value = value_message.content.strip()
-    if not new_value:
-        await interaction.followup.send("Value cannot be empty.")
-        return
-
-    if selection in (1, 2, 3, 4):
-        current_guild_name = guild_settings.get_target_guild(interaction.guild.id)
-        if not current_guild_name:
-            await interaction.followup.send("This server is not configured yet. Run **/bot-setup** first.")
-            return
-
-        current_member_role = guild_settings.get_member_role(interaction.guild.id)
-        current_caller_roles = ", ".join(guild_settings.get_caller_roles(interaction.guild.id))
-        current_economy_manager_roles = ", ".join(guild_settings.get_economy_manager_roles(interaction.guild.id))
-
-        updated_guild_name = current_guild_name
-        updated_caller_roles = current_caller_roles
-        updated_economy_manager_roles = current_economy_manager_roles
-        updated_member_role = current_member_role
-
-        if selection == 1:
-            existing_server_id = guild_settings.get_server_id_by_target_guild(new_value)
-            if existing_server_id and int(existing_server_id) != interaction.guild.id:
-                await interaction.followup.send(
-                    f"Guild name **{new_value}** is already used by another server. Exiting configuration setup."
-                )
-                return
-            updated_guild_name = new_value
-        elif selection == 2:
-            updated_caller_roles = new_value
-        elif selection == 3:
-            updated_economy_manager_roles = new_value
-        elif selection == 4:
-            updated_member_role = new_value
-
-        guild_settings.set_target_guild(
-            interaction.guild.id,
-            updated_guild_name,
-            updated_member_role,
-            updated_caller_roles,
-            updated_economy_manager_roles,
-        )
-    else:
-        link_field_by_option = {
-            5: "credentials_file",
-            6: "google_sheet_name",
-            7: "google_worksheet_name",
-            8: "lootsplit_history_worksheet_name",
-            9: "balance_history_worksheet_name",
-        }
-        target_field = link_field_by_option[selection]
-        updated, update_message = google_sheet_credentials_store.update_credentials_link_field(
-            interaction.guild.id,
-            target_field,
-            new_value,
-        )
-        if not updated:
-            await interaction.followup.send(update_message)
-            return
-
-    posted, posted_message = await post_or_update_bot_configuration_message(interaction)
-    if not posted:
-        await interaction.followup.send(posted_message)
-        return
-
-    await interaction.followup.send("Configuration updated.")
+    update_view.host_message = await interaction.original_response()
 
 
 async def handle_lootsplit_slash(
@@ -361,53 +280,6 @@ async def handle_lootsplit_slash(
         lines.append(f"Failed to process: **{', '.join(failed_participants)}**")
 
     await interaction.followup.send("\n".join(lines))
-
-
-async def handle_bot_remove(bot, context):
-    if not await globals.is_admin(context.author):
-        await context.reply("You don't have permission to use this command.")
-        return
-
-    if context.guild is None:
-        await context.reply("This command can only be used inside a server.")
-        return
-
-    configured_guild_name = guild_settings.get_target_guild(context.guild.id)
-    if not configured_guild_name:
-        await context.reply("This server is not set up.")
-        return
-
-    await context.reply(
-        f"Warning: this will delete setup for this server (guild **{configured_guild_name}**). Reply with **YES** to proceed or **NO** to cancel."
-    )
-
-    def remove_confirmation_check(message: discord.Message) -> bool:
-        return (
-            message.author.id == context.author.id
-            and message.channel.id == context.channel.id
-            and message.content.strip().upper() in {"YES", "NO"}
-        )
-
-    try:
-        confirmation_message = await bot.wait_for('message', timeout=60, check=remove_confirmation_check)
-    except asyncio.TimeoutError:
-        await context.reply("Removal timed out. Run !bot-remove again.")
-        return
-
-    if confirmation_message.content.strip().upper() != "YES":
-        await context.reply("Removal cancelled.")
-        return
-
-    removed_guild_name = guild_settings.remove_target_guild(context.guild.id)
-    if not removed_guild_name:
-        await context.reply("This server is not set up.")
-        return
-
-    google_sheet_credentials_store.remove_google_sheet_credentials(context.guild.id)
-
-    await context.reply(
-        f"Setup removed. Discord server ID **{context.guild.id}** and guild **{removed_guild_name}** were deleted."
-    )
 
 
 async def handle_get_balance(context, nickname: str = None):
