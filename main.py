@@ -8,13 +8,14 @@ from dotenv import load_dotenv
 import command_handlers
 import comp_builder
 import guild_settings
+import role_reaction
 import tickets
 
 
 load_dotenv()
 
 
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv('DISCORD_TOKEN_TEST')
 BOT_RESTART_MESSAGE = os.getenv('BOT_RESTART_MESSAGE')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
@@ -96,6 +97,11 @@ async def tickets_setup_slash(interaction: discord.Interaction):
     await tickets.handle_tickets_setup(bot, interaction)
 
 
+@bot.tree.command(name='role-reaction-setup', description='Set up role reaction panels for this server')
+async def role_reaction_setup_slash(interaction: discord.Interaction):
+    await role_reaction.handle_role_reaction_setup(interaction)
+
+
 @bot.tree.command(name='update-config', description='Update bot configuration values')
 async def update_config_slash(interaction: discord.Interaction):
     await command_handlers.handle_update_config_slash(interaction)
@@ -153,6 +159,16 @@ async def bal_remove_slash(
 
 
 bot.add_listener(comp_builder.on_message_in_thread, 'on_message')
+
+
+@bot.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent) -> None:
+    await role_reaction.handle_raw_reaction_add(bot, payload)
+
+
+@bot.event
+async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent) -> None:
+    await role_reaction.handle_raw_reaction_remove(bot, payload)
 
 
 @bot.command()
