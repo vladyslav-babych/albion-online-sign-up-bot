@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import command_handlers
 import comp_builder
 import guild_settings
+import objectives
 import role_reaction
 import tickets
 
@@ -15,7 +16,7 @@ import tickets
 load_dotenv()
 
 
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv('DISCORD_TOKEN_TEST')
 BOT_RESTART_MESSAGE = os.getenv('BOT_RESTART_MESSAGE')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
@@ -59,6 +60,8 @@ async def on_ready():
 
     if not slash_commands_synced:
         tickets.register_persistent_views(bot)
+        objectives.register_persistent_views(bot)
+        objectives.start_objectives_scheduler(bot)
         await bot.tree.sync()
         await _send_restart_notifications()
         slash_commands_synced = True
@@ -100,6 +103,11 @@ async def tickets_setup_slash(interaction: discord.Interaction):
 @bot.tree.command(name='role-reaction-setup', description='Set up role reaction panels for this server')
 async def role_reaction_setup_slash(interaction: discord.Interaction):
     await role_reaction.handle_role_reaction_setup(interaction)
+
+
+@bot.tree.command(name='set-objective-panel', description='Post or update the objectives panel for this server')
+async def set_objective_panel_slash(interaction: discord.Interaction):
+    await objectives.handle_set_objectivess_panel(interaction)
 
 
 @bot.tree.command(name='update-config', description='Update bot configuration values')
