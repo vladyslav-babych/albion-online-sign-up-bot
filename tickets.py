@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from typing import Optional
+import re
+import unicodedata
 from uuid import uuid4
 
 import discord
@@ -118,6 +120,21 @@ def _format_category_name(guild: discord.Guild, category_id: Optional[int]) -> s
 	return category.name if category is not None else "Not selected"
 
 
+def _slugify_channel_component(value: str, *, fallback: str = "user", max_length: int = 50) -> str:
+	if not value:
+		return fallback
+
+	normalized = unicodedata.normalize("NFKD", str(value))
+	ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+	ascii_value = ascii_value.lower().strip()
+	ascii_value = re.sub(r"[\s_]+", "-", ascii_value)
+	ascii_value = re.sub(r"[^a-z0-9-]", "", ascii_value)
+	ascii_value = re.sub(r"-+", "-", ascii_value).strip("-")
+	if not ascii_value:
+		ascii_value = fallback
+	return ascii_value[:max_length]
+
+
 def _format_channel_mention(guild: discord.Guild, channel_id: Optional[int]) -> str:
 	if not channel_id:
 		return "Not selected"
@@ -134,6 +151,24 @@ def _has_management_access(member: discord.Member, management_role_ids: list[int
 
 def _build_ticket_topic(panel_id: str, opener_id: int, ticket_number: int) -> str:
 	return f"panel_id={panel_id};opener_id={opener_id};ticket_number={ticket_number}"
+
+
+def _build_ticket_topic_with_slug(panel_id: str, opener_id: int, ticket_number: int, opener_slug: str) -> str:
+	base = _build_ticket_topic(panel_id, opener_id, ticket_number)
+	return f"{base};opener_slug={opener_slug}"
+
+
+def _get_ticket_opener_slug(status: str, opener_display_name: str, ticket_number: int) -> str:
+	suffix = f"{int(ticket_number):04d}"
+	max_slug_length = max(1, 100 - len(status) - len(suffix) - 2)
+	return _slugify_channel_component(opener_display_name, max_length=max_slug_length)
+
+
+def _build_ticket_channel_name(status: str, opener_slug: str, ticket_number: int) -> str:
+	suffix = f"{int(ticket_number):04d}"
+	max_slug_length = max(1, 100 - len(status) - len(suffix) - 2)
+	opener_slug = _slugify_channel_component(opener_slug, max_length=max_slug_length)
+	return f"{status}-{opener_slug}-{suffix}"
 
 
 def _parse_ticket_topic(topic: Optional[str]) -> dict[str, str]:
@@ -178,40 +213,47 @@ def _build_panel_embed(panel_name: str, panel_message: Optional[str] = None) -> 
 
 
 def _build_setup_embed(view: "TicketPanelSetupView") -> discord.Embed:
-	embed = discord.Embed(title=f"Ticket Panel Setup - Step {view.step}/6")
+	embed = discord.Embed(title=f"Ticket Panel Setup - Step {view.step}/7")
 	state = view.state
 	guild = view.guild
 
 	if view.step == 1:
-		embed.description = "Set the panel name."
+		embed.description = "## :pencil: Set the panel name"
 		embed.add_field(name="Panel name", value=state["panel_name"], inline=False)
 	elif view.step == 2:
-		embed.description = "Select the management team role(s)."
+		embed.description = "## :tickets: Select the management team role(s)"
 		embed.add_field(
 			name="Selected management team roles",
 			value=_format_role_mentions(guild, state["management_role_ids"]),
 			inline=False,
 		)
 	elif view.step == 3:
-		embed.description = "Select the ticket category."
+		embed.description = "## :open_file_folder: Select the open ticket category"
 		embed.add_field(
 			name="Selected category",
 			value=_format_category_name(guild, state["ticket_category_id"]),
 			inline=False,
 		)
 	elif view.step == 4:
-		embed.description = "Select the panel destination channel."
+		embed.description = "## :file_folder: Select the closed ticket category"
+		embed.add_field(
+			name="Selected closed category",
+			value=_format_category_name(guild, state["closed_ticket_category_id"]),
+			inline=False,
+		)
+	elif view.step == 5:
+		embed.description = "## :dart: Select the panel destination channel"
 		embed.add_field(
 			name="Selected panel destination",
 			value=_format_channel_mention(guild, state["panel_destination_channel_id"]),
 			inline=False,
 		)
-	elif view.step == 5:
-		embed.description = "Set the panel message and the opening ticket message."
+	elif view.step == 6:
+		embed.description = "## :speech_balloon: Set the panel message and the opening ticket message"
 		embed.add_field(name="Panel message", value=state["panel_message"], inline=False)
 		embed.add_field(name="Ticket message", value=state["ticket_message"], inline=False)
 	else:
-		embed.description = "Review the summary and finish panel creation."
+		embed.description = "## :clipboard: Review the summary and finish panel creation"
 		embed.add_field(name="Panel name", value=state["panel_name"], inline=False)
 		embed.add_field(
 			name="Management team role(s)",
@@ -221,6 +263,11 @@ def _build_setup_embed(view: "TicketPanelSetupView") -> discord.Embed:
 		embed.add_field(
 			name="Ticket category",
 			value=_format_category_name(guild, state["ticket_category_id"]),
+			inline=False,
+		)
+		embed.add_field(
+			name="Closed ticket category",
+			value=_format_category_name(guild, state["closed_ticket_category_id"]),
 			inline=False,
 		)
 		embed.add_field(
@@ -265,6 +312,11 @@ def _build_manage_embed(guild: discord.Guild, panels: list[dict], selected_panel
 	embed.add_field(
 		name="Ticket category",
 		value=_format_category_name(guild, selected_panel.get("ticket_category_id")),
+		inline=False,
+	)
+	embed.add_field(
+		name="Closed ticket category",
+		value=_format_category_name(guild, selected_panel.get("closed_ticket_category_id")),
 		inline=False,
 	)
 	embed.add_field(
@@ -344,6 +396,21 @@ class TicketCategorySelect(discord.ui.ChannelSelect):
 		await interaction.response.edit_message(embed=_build_setup_embed(view), view=view)
 
 
+class ClosedTicketCategorySelect(discord.ui.ChannelSelect):
+	def __init__(self):
+		super().__init__(placeholder="Select the closed ticket category", channel_types=[discord.ChannelType.category], min_values=1, max_values=1)
+
+	async def callback(self, interaction: discord.Interaction) -> None:
+		view = self.view
+		if not isinstance(view, TicketPanelSetupView):
+			return
+		if not await view.ensure_owner(interaction):
+			return
+		selected = self.values[0]
+		view.state["closed_ticket_category_id"] = selected.id
+		await interaction.response.edit_message(embed=_build_setup_embed(view), view=view)
+
+
 class PanelDestinationChannelSelect(discord.ui.ChannelSelect):
 	def __init__(self):
 		super().__init__(placeholder="Select panel destination channel", channel_types=[discord.ChannelType.text], min_values=1, max_values=1)
@@ -371,6 +438,7 @@ class TicketPanelSetupView(discord.ui.View):
 			"panel_name": "Panel Name",
 			"management_role_ids": [],
 			"ticket_category_id": None,
+			"closed_ticket_category_id": None,
 			"panel_destination_channel_id": None,
 			"panel_message": _get_default_panel_message(),
 			"ticket_message": _get_default_ticket_message(),
@@ -398,9 +466,12 @@ class TicketPanelSetupView(discord.ui.View):
 			self.add_item(TicketCategorySelect())
 			self.add_item(SetupContinueButton())
 		elif self.step == 4:
-			self.add_item(PanelDestinationChannelSelect())
+			self.add_item(ClosedTicketCategorySelect())
 			self.add_item(SetupContinueButton())
 		elif self.step == 5:
+			self.add_item(PanelDestinationChannelSelect())
+			self.add_item(SetupContinueButton())
+		elif self.step == 6:
 			self.add_item(SetPanelMessagesButton())
 			self.add_item(SetupContinueButton())
 		else:
@@ -488,7 +559,10 @@ class SetupContinueButton(discord.ui.Button):
 		if view.step == 3 and not view.state["ticket_category_id"]:
 			await interaction.response.send_message("Select a ticket category.", ephemeral=True)
 			return
-		if view.step == 4 and not view.state["panel_destination_channel_id"]:
+		if view.step == 4 and not view.state["closed_ticket_category_id"]:
+			await interaction.response.send_message("Select a closed ticket category.", ephemeral=True)
+			return
+		if view.step == 5 and not view.state["panel_destination_channel_id"]:
 			await interaction.response.send_message("Select a panel destination channel.", ephemeral=True)
 			return
 
@@ -505,6 +579,16 @@ class FinishPanelButton(discord.ui.Button):
 		if not isinstance(view, TicketPanelSetupView):
 			return
 		if not await view.ensure_owner(interaction):
+			return
+
+		open_category = view.guild.get_channel(int(view.state.get("ticket_category_id") or 0))
+		if not isinstance(open_category, discord.CategoryChannel):
+			await interaction.response.send_message("Configured ticket category was not found.", ephemeral=True)
+			return
+
+		closed_category = view.guild.get_channel(int(view.state.get("closed_ticket_category_id") or 0))
+		if not isinstance(closed_category, discord.CategoryChannel):
+			await interaction.response.send_message("Configured closed ticket category was not found.", ephemeral=True)
 			return
 
 		panel_destination_channel = view.guild.get_channel(int(view.state["panel_destination_channel_id"] or 0))
@@ -543,6 +627,7 @@ class FinishPanelButton(discord.ui.Button):
 			"panel_name": view.state["panel_name"],
 			"management_role_ids": view.state["management_role_ids"],
 			"ticket_category_id": view.state["ticket_category_id"],
+			"closed_ticket_category_id": view.state["closed_ticket_category_id"],
 			"panel_destination_channel_id": view.state["panel_destination_channel_id"],
 			"panel_message": view.state["panel_message"],
 			"ticket_message": view.state["ticket_message"],
@@ -773,7 +858,9 @@ class TicketOpenView(discord.ui.View):
 			return
 
 		ticket_number = _consume_ticket_number(interaction.guild.id)
-		ticket_name = f"ticket-{ticket_number:04d}"
+		opener_display_name = getattr(interaction.user, "display_name", None) or interaction.user.name
+		opener_slug = _get_ticket_opener_slug("open", opener_display_name, ticket_number)
+		ticket_name = _build_ticket_channel_name("open", opener_slug, ticket_number)
 		overwrites = {
 			interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
 			interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
@@ -789,7 +876,7 @@ class TicketOpenView(discord.ui.View):
 			name=ticket_name,
 			category=category,
 			overwrites=overwrites,
-			topic=_build_ticket_topic(str(panel.get("id")), interaction.user.id, ticket_number),
+			topic=_build_ticket_topic_with_slug(str(panel.get("id")), interaction.user.id, ticket_number, opener_slug),
 		)
 
 		management_names = _format_role_names(interaction.guild, panel.get("management_role_ids", []))
@@ -823,6 +910,7 @@ class TicketCloseView(discord.ui.View):
 		panel_id = metadata.get("panel_id")
 		ticket_number_raw = metadata.get("ticket_number", "0")
 		opener_id_raw = metadata.get("opener_id", "0")
+		opener_slug_raw = metadata.get("opener_slug")
 		panel = _get_panel_by_id(interaction.guild.id, panel_id) if panel_id else None
 		if panel is None:
 			await interaction.response.send_message("Ticket configuration was not found.", ephemeral=True)
@@ -839,9 +927,30 @@ class TicketCloseView(discord.ui.View):
 		await interaction.response.defer(ephemeral=True)
 
 		opener_member = interaction.guild.get_member(int(opener_id_raw or 0)) if opener_id_raw.isdigit() else None
+		opener_display_name = (getattr(opener_member, "display_name", None) if opener_member is not None else None) or "user"
+		resolved_slug = opener_slug_raw or _slugify_channel_component(opener_display_name)
 
-		new_name = f"closed-{int(ticket_number_raw or 0):04d}" if str(ticket_number_raw).isdigit() else f"closed-{interaction.channel.id}"
-		await interaction.channel.edit(name=new_name)
+		ticket_number_int = int(ticket_number_raw or 0) if str(ticket_number_raw).isdigit() else 0
+		if ticket_number_int:
+			new_name = _build_ticket_channel_name("closed", resolved_slug, ticket_number_int)
+		else:
+			new_name = f"closed-{_slugify_channel_component(resolved_slug)}-{interaction.channel.id}"
+
+		closed_category = None
+		closed_category_id = panel.get("closed_ticket_category_id")
+		if closed_category_id:
+			channel_obj = interaction.guild.get_channel(int(closed_category_id))
+			if isinstance(channel_obj, discord.CategoryChannel):
+				closed_category = channel_obj
+
+		edit_kwargs = {"name": new_name}
+		if closed_category is not None:
+			edit_kwargs["category"] = closed_category
+		try:
+			await interaction.channel.edit(**edit_kwargs)
+		except (discord.Forbidden, discord.HTTPException):
+			# Fall back to renaming only if moving categories is forbidden.
+			await interaction.channel.edit(name=new_name)
 		if opener_member is not None:
 			await interaction.channel.set_permissions(opener_member, send_messages=False, add_reactions=False)
 
