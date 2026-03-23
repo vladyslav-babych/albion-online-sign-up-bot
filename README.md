@@ -1,16 +1,16 @@
-# KINGSBLOOD_BOT
+# Realm Protector discord bot
 
-Discord bot for Albion guild operations: registration, party comp management, lootsplit payouts, and Google Sheets-based accounting/history.
+Discord bot for Albion guild operations and management: registration, party comp management, lootsplit payouts, and Google Sheets-based accounting/history.
 
-## Current architecture
+## Invitation setup:
 
-- `main.py` contains only bot bootstrap + command routing.
-- `command_handlers.py` contains all command logic.
-- `modals.py` contains setup/link modals and persistent configuration message handling.
-- `guild_settings.py` stores per-server bot config (`guild_name`, `caller_role_name`, `economy_manager_role_name`, `member_role_name`, config-message ids).
-- `google_sheet_credentials_store.py` stores Google Sheet link metadata per server.
+1. Use the following link to invite bot to your server: https://discord.com/oauth2/authorize?client_id=1473795901079421152&permissions=7337378717101142&integration_type=0&scope=bot
 
-## Setup
+2. In Discord (server admin):
+	 - Run `/bot-setup` (required for most commands)
+	 - Run `/bot-link-google-sheet` (optional, but required for some setups and commands)
+
+## Local setup
 
 1. Create and activate a virtual environment.
 2. Install dependencies:
@@ -27,31 +27,29 @@ python main.py
 ```
 
 5. In Discord (server admin):
-	 - Run `/bot-setup`
-	 - Run `/bot-link-google-sheet`
+	 - Run `/bot-setup` (required for most commands)
+	 - Run `/bot-link-google-sheet` (optional, but required for some setups and commands)
 
 ## Security warning
 
-- Service account credentials you provide via `/bot-link-google-sheet` are stored as local JSON files in `google_sheet_credentials/`.
-- The bot owner/operator has access to these credential files.
+- Service account credentials you provide via `/bot-link-google-sheet` and all setup configurations are stored as local JSON files.
+- The bot owner/operator has access to the credentials and configuration files.
 - Set up and use this bot at your own risk.
-- Use a dedicated, least-privilege Google service account only for this bot.
+- Use a dedicated, least-privilege Google service account only for the Google Sheets link.
 
-## Commands
-
-### Prefix commands
+## Prefix commands
 
 - `!create-comp <comp_message_id> <source_channel_id>`
 - `!get-participants <battle_ids>`
 - `!bal [nickname]`
-- `/bot-remove`
 - `!clear`
 
-### Slash commands
+## Slash commands
 
 - `/bot-setup`
 - `/bot-link-google-sheet`
 - `/tickets-setup`
+- `/set-objective-panel`
 - `/update-config`
 - `/register`
 - `/lootsplit`
@@ -63,9 +61,9 @@ python main.py
 - Admin-only:
 	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `/bot-remove`, `!clear`
 - Economy operations (`/lootsplit`, `/bal-add`, `/bal-remove`):
-	- allowed for Admins OR members with configured Economy Manager role(s)
+	- Allowed for Admins OR members with configured Economy Manager role(s)
 - Comp officer actions (`!create-comp`, forced sign-up/sign-out in party threads):
-	- allowed for Admins OR members with configured Caller role(s)
+	- Allowed for Admins OR members with configured Caller role(s)
 - `/register`, `!bal`, and normal thread self sign-up/sign-out are available without admin requirement.
 
 ## Bot setup and configuration
@@ -75,9 +73,9 @@ python main.py
 Configures per-server values:
 
 - Guild name
-- Caller role name(s) (default: `Caller`, supports CSV like `Caller, War Master`)
-- Economy Manager role name(s) (default: `Economy Manager`, supports CSV like `Economy Manager, Banker`)
-- Member role name (default: `Member`)
+- Caller role(s) selection
+- Economy Manager role(s) selection
+- Member role selection
 
 After setup, bot posts/updates a persistent **Bot configuration** message in the channel.
 
@@ -86,21 +84,43 @@ After setup, bot posts/updates a persistent **Bot configuration** message in the
 Links service account JSON and sheet mapping:
 
 - Credentials JSON (full service account JSON text)
-- Google Sheet name (default: guild name)
+- Google Sheet name (default: refers to guild name that was set up in `/bot-setup`)
 - Players worksheet name (default: `Players`)
 - Lootsplit History worksheet name (default: `Lootsplit History`)
 - Balance History worksheet name (default: `Balance History`)
 
-After linking, the same persistent configuration message is updated.
+After linking, the same persistent configuration message is updated.  
+
+Your linked Google Sheet is required to have 3 worksheets with the **EXACT** naming you provided in `/bot-link-google-sheet`:
+
+- **Players** worksheet, column names **MUST** match those that are indicated in the example (values are for example):
+
+| Discord ID | Albion Nickname | Silver |
+|------------|-----------------|--------|
+| 1234567890 | Nickname | 0 |  
+
+- **Lootsplit History** worksheet, column names **MUST** match those that are indicated in the example (values are for example):
+
+| Battleboard ID | Date | Officer | Content name | Caller | Participant | Lootsplit |
+|----------------|------|---------|--------------|--------|-------------|-----------|
+| 1234567890 | 03/24/26 17:44 UTC | Officer name | Terry defence | Caller name | Participant name | 2500000 |  
+
+- **Balance History** worksheet, column names **MUST** match those that are indicated in the example (values are for example):
+
+| Date | Reason | Officer | Nickname | Amount |
+|------|--------|---------|----------|--------|
+| 03/24/26 17:44 UTC | Payout | Officer name | Player name | -2500000 |
+
+**Note:** If at least 1 letter in the column name will not match, logging and registration will not work.
 
 ### `/update-config`
 
-Interactive update flow in chat:
+Interactive update panel in chat:
 
-1. Bot posts numbered menu `(1)`..`(9)`
-2. Admin replies with number
-3. Bot asks for new value
-4. Bot updates related JSON store and refreshes persistent configuration message
+1. Bot posts an interactive panel in chat
+2. Admin selects the configuration that needs to be updated
+3. Admin enters or selects a new value for the chosen configuration
+4. After confirmation, bot updates the associated JSON file and updates the persistent configuration panel
 
 Supported fields:
 
@@ -113,7 +133,6 @@ Supported fields:
 7. Players Worksheet name
 8. Lootsplit History Worksheet name
 9. Balance History Worksheet name
-10. Exit
 
 Safety checks:
 
@@ -137,35 +156,37 @@ Panel creation uses 6 steps:
 
 1. Set panel name
 2. Select management team role(s)
-3. Select ticket category
+3. Select open ticket category
 4. Select panel destination channel
-5. Set panel message and ticket opening message
-6. Review summary and finish
+5. Select closed ticket category
+6. Set panel message and ticket opening message
+7. Review summary and finish
 
 The created panel contains an `Open Ticket` button.
 
 The message step opens a modal where admin can customize:
 
-- the panel embed message shown before opening a ticket
-- the opening message shown inside newly created tickets
+- The panel embed message shown before opening a ticket
+- The opening message shown inside newly created tickets
 
 ### Ticket behavior
 
 - Clicking `Open Ticket` creates a new text channel under the selected category.
-- Ticket names are generated as `ticket-0001`, `ticket-0002`, and so on.
+- Ticket names are generated as `open-discord_name-0001`, `open-discord_name-0002`, and so on.
 - Only the applicant and selected management team can view the ticket.
 - The ticket contains a `Close Ticket` button.
 - When management team closes the ticket:
-	- channel is renamed to `closed-0001`
-	- applicant loses send permission
+	- Channel is renamed to `closed-discord_name-0001`
+ 	- Channel is moved to selected closed ticket category
+	- Applicant loses send permission
 
 ### Manage Panels
 
 Manage Panels lets admin:
 
-- view configured panels
-- send a selected panel again to its configured destination channel
-- delete a selected panel
+- View configured panels
+- Send a selected panel again to its configured destination channel
+- Delete a selected panel
 
 ## Registration and balances
 
