@@ -20,24 +20,7 @@ load_dotenv()
 
 token = os.getenv('DISCORD_TOKEN')
 BOT_RESTART_MESSAGE = os.getenv('BOT_RESTART_MESSAGE')
-
-
-def _create_discord_log_handler() -> logging.Handler:
-    log_file = os.getenv("DISCORD_LOG_FILE", "discord.log")
-    try:
-        log_path = Path(log_file)
-        if str(log_path.parent) not in (".", ""):
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-        return logging.FileHandler(filename=str(log_path), encoding="utf-8", mode="w")
-    except OSError as exc:
-        print(
-            f"Warning: could not create log file '{log_file}' ({exc}). Falling back to stderr logging.",
-            file=sys.stderr,
-        )
-        return logging.StreamHandler()
-
-
-handler = _create_discord_log_handler()
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
