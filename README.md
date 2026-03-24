@@ -49,6 +49,7 @@ python main.py
 - `/bot-setup`
 - `/bot-link-google-sheet`
 - `/tickets-setup`
+- `/role-reaction-setup`
 - `/set-objective-panel`
 - `/update-config`
 - `/register`
@@ -239,6 +240,10 @@ Google Sheets operations use retry-with-backoff for quota (`429`) errors.
 
 ## Party comp thread behavior
 
+### `!create-comp <comp_message_id> <source_channel_id>`
+
+Before using this command, it is necessary to create a comp message. A Comp message can 
+
 In `Party ... thread` threads:
 
 - `1` → sign up to role `1`
@@ -259,3 +264,33 @@ In `Party ... thread` threads:
 
 - Enable **Developer Mode** in Discord to copy message/channel IDs for `!create-comp`.
 - If you rename worksheet tabs in Google Sheets, update mapping via `/update-config` or relink with `/bot-link-google-sheet`.
+
+## Recommendations from the bot author:
+
+- Create a separate category for the bot setup and configuration.
+- Create separate channels for each setup:
+	- `#bot-updates`
+  	- `#bot-setup`
+	- `#tickets-setup`
+  	- `#role-reacts-setup`
+  	- `#comp-storage`
+
+### `#bot-updates`
+
+- Channel with updates where the message will be sent when the hosting server is restarted, and informs about new bot updates if there are any.
+
+### `#bot-setup`
+
+- Channel where `/bot-setup` and `/bot-link-google-sheet` commands should be used. Bot configuration persistent panel will be sent here as well.
+
+### `#tickets-setup`
+
+- Channel where the `/tickets-setup` command should be used. An interactive panel to manage and create new ticket panels will be sent here.
+
+### `#role-reacts-setup`
+
+- Channel where the `/tickets-setup` command should be used. An interactive panel to manage and create new ticket panels will be sent here.
+
+### `#comp-storage`
+
+- Channel where comp messages will be stored. Can send the `./create-comp 1234567890 0987654321` message to the quick access comp creation command.
