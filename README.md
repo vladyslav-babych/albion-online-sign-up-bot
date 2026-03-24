@@ -189,6 +189,81 @@ Manage Panels lets admin:
 - Send a selected panel again to its configured destination channel
 - Delete a selected panel
 
+## Role reaction panels
+
+### `/role-reaction-setup`
+
+Admin command used to configure **role reaction panels**.
+
+The setup message contains 2 buttons:
+
+- `Create new panel`
+- `Manage panels`
+
+### Create new panel flow
+
+Panel creation uses 5 steps:
+
+1. Set panel name
+2. Set panel message
+3. Add emoji → role mappings (up to 6)
+4. Select destination channel
+5. Preview summary and confirm
+
+When confirmed, the bot sends an embed to the chosen destination channel and adds the configured reactions.
+
+### Role reaction behavior
+
+- When a user reacts to a configured emoji, the bot adds the associated role.
+- When a user removes the reaction, the bot removes the associated role.
+- Only Unicode emojis are supported (you can also input a shortcode like `:gear:` during setup).
+
+Required bot permissions:
+
+- In the destination channel: **View Channel**, **Send Messages**, **Embed Links**, **Add Reactions**
+- In the server: **Manage Roles** (and the bot role must be above the roles it needs to grant)
+
+### Manage panels
+
+Manage panels lets admin:
+
+- Resend a selected panel to its configured destination channel (updates stored message reference)
+- Delete a selected panel (also attempts to delete the last sent panel message)
+
+## Objectives panel
+
+### `/set-objective-panel`
+
+Admin command that posts or updates a persistent **Objectives panel** in the current channel.
+
+- Requires the server to be configured first via `/bot-setup`.
+- If a panel already exists in another channel, the bot moves it by deleting the old message (or editing it with a “moved” notice if it cannot delete).
+
+### Adding objectives
+
+The Objectives panel contains an `Add Objective` button.
+
+When clicked, it opens an ephemeral wizard with 2 objective types:
+
+- **Vortex**:
+	1. Select rarity (Common / Uncommon / Epic / Legendary)
+	2. Set pop time (UTC, `HH:MM`)
+	3. Set map name
+	4. Confirm
+- **Node**:
+	1. Select node type (Wood / Hide / Ore / Fiber)
+	2. Select tier (4.4 / 5.4 / 6.4 / 7.4 / 8.4)
+	3. Set pop time (UTC, `HH:MM`)
+	4. Set map name
+	5. Confirm
+
+After confirmation, the bot posts the objective as a separate message (with a `Remove Objective` button) in the same channel as the objectives panel.
+
+### Objective lifecycle
+
+- Objectives automatically “expire” after they pop: once the pop time is reached, the objective message is marked as popped and then removed ~60 seconds later.
+- Manual removal is available via the `Remove Objective` button for Admins and members with configured Caller role(s).
+
 ## Registration and balances
 
 ### `/register <character_name>`
@@ -255,6 +330,10 @@ In `Party ... thread` threads:
 
 - `configs/guilds_config.json`:
 	- guild mapping + role config + persistent config message references
+- `configs/role_reaction_config.json`:
+	- per-server role reaction panels (emoji → role mapping + last sent message references)
+- `configs/objectives_config.json`:
+	- per-server objectives panel reference + active objectives list
 - `google_sheet_credentials/credentials_links.json`:
 	- per-server sheet and worksheet mapping
 - `google_sheet_credentials/*_credentials.json`:
@@ -289,7 +368,7 @@ In `Party ... thread` threads:
 
 ### `#role-reacts-setup`
 
-- Channel where the `/tickets-setup` command should be used. An interactive panel to manage and create new ticket panels will be sent here.
+- Channel where the `/role-reaction-setup` command should be used. The setup wizard and panel management messages are sent here.
 
 ### `#comp-storage`
 
