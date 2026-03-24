@@ -1,12 +1,15 @@
 import json
+import asyncio
 from pathlib import Path
 from typing import Optional
 import re
 import unicodedata
 from uuid import uuid4
+from urllib.parse import quote, unquote
 
 import discord
 
+import albion_client
 import globals
 
 
@@ -27,6 +30,7 @@ def _load_ticket_config() -> dict:
 
 
 def _save_ticket_config(config: dict) -> None:
+	_TICKETS_FILE.parent.mkdir(parents=True, exist_ok=True)
 	with _TICKETS_FILE.open("w", encoding="utf-8") as file:
 		json.dump(config, file, ensure_ascii=True, indent=2)
 
@@ -158,6 +162,29 @@ def _build_ticket_topic_with_slug(panel_id: str, opener_id: int, ticket_number: 
 	return f"{base};opener_slug={opener_slug}"
 
 
+def _build_ticket_topic_with_character(
+	panel_id: str,
+	opener_id: int,
+	ticket_number: int,
+	opener_slug: str,
+	character_nickname: str,
+	albion_player_id: Optional[str],
+) -> str:
+	base = _build_ticket_topic_with_slug(panel_id, opener_id, ticket_number, opener_slug)
+	nickname_safe = quote((character_nickname or "").strip()[:80])
+	player_id_safe = quote((albion_player_id or "").strip()[:80])
+	return f"{base};character={nickname_safe};albion_id={player_id_safe}"
+
+
+def _get_ticket_character_nickname(metadata: dict[str, str]) -> str:
+	raw = metadata.get("character") or ""
+	try:
+		value = unquote(raw)
+	except Exception:
+		value = raw
+	return (value or "").strip()
+
+
 def _get_ticket_opener_slug(status: str, opener_display_name: str, ticket_number: int) -> str:
 	suffix = f"{int(ticket_number):04d}"
 	max_slug_length = max(1, 100 - len(status) - len(suffix) - 2)
@@ -235,10 +262,10 @@ def _build_setup_embed(view: "TicketPanelSetupView") -> discord.Embed:
 			inline=False,
 		)
 	elif view.step == 4:
-		embed.description = "## :file_folder: Select the closed ticket category"
+		embed.description = "## :file_folder: Select the ticket archive channel"
 		embed.add_field(
-			name="Selected closed category",
-			value=_format_category_name(guild, state["closed_ticket_category_id"]),
+			name="Selected archive channel",
+			value=_format_channel_mention(guild, state["ticket_archive_channel_id"]),
 			inline=False,
 		)
 	elif view.step == 5:
@@ -266,8 +293,8 @@ def _build_setup_embed(view: "TicketPanelSetupView") -> discord.Embed:
 			inline=False,
 		)
 		embed.add_field(
-			name="Closed ticket category",
-			value=_format_category_name(guild, state["closed_ticket_category_id"]),
+			name="Ticket archive channel",
+			value=_format_channel_mention(guild, state["ticket_archive_channel_id"]),
 			inline=False,
 		)
 		embed.add_field(
@@ -315,8 +342,8 @@ def _build_manage_embed(guild: discord.Guild, panels: list[dict], selected_panel
 		inline=False,
 	)
 	embed.add_field(
-		name="Closed ticket category",
-		value=_format_category_name(guild, selected_panel.get("closed_ticket_category_id")),
+		name="Ticket archive channel",
+		value=_format_channel_mention(guild, selected_panel.get("ticket_archive_channel_id")),
 		inline=False,
 	)
 	embed.add_field(
@@ -396,9 +423,14 @@ class TicketCategorySelect(discord.ui.ChannelSelect):
 		await interaction.response.edit_message(embed=_build_setup_embed(view), view=view)
 
 
-class ClosedTicketCategorySelect(discord.ui.ChannelSelect):
+class TicketArchiveChannelSelect(discord.ui.ChannelSelect):
 	def __init__(self):
-		super().__init__(placeholder="Select the closed ticket category", channel_types=[discord.ChannelType.category], min_values=1, max_values=1)
+		super().__init__(
+			placeholder="Select the ticket archive channel",
+			channel_types=[discord.ChannelType.text],
+			min_values=1,
+			max_values=1,
+		)
 
 	async def callback(self, interaction: discord.Interaction) -> None:
 		view = self.view
@@ -407,7 +439,7 @@ class ClosedTicketCategorySelect(discord.ui.ChannelSelect):
 		if not await view.ensure_owner(interaction):
 			return
 		selected = self.values[0]
-		view.state["closed_ticket_category_id"] = selected.id
+		view.state["ticket_archive_channel_id"] = selected.id
 		await interaction.response.edit_message(embed=_build_setup_embed(view), view=view)
 
 
@@ -438,7 +470,7 @@ class TicketPanelSetupView(discord.ui.View):
 			"panel_name": "Panel Name",
 			"management_role_ids": [],
 			"ticket_category_id": None,
-			"closed_ticket_category_id": None,
+			"ticket_archive_channel_id": None,
 			"panel_destination_channel_id": None,
 			"panel_message": _get_default_panel_message(),
 			"ticket_message": _get_default_ticket_message(),
@@ -466,7 +498,7 @@ class TicketPanelSetupView(discord.ui.View):
 			self.add_item(TicketCategorySelect())
 			self.add_item(SetupContinueButton())
 		elif self.step == 4:
-			self.add_item(ClosedTicketCategorySelect())
+			self.add_item(TicketArchiveChannelSelect())
 			self.add_item(SetupContinueButton())
 		elif self.step == 5:
 			self.add_item(PanelDestinationChannelSelect())
@@ -559,8 +591,8 @@ class SetupContinueButton(discord.ui.Button):
 		if view.step == 3 and not view.state["ticket_category_id"]:
 			await interaction.response.send_message("Select a ticket category.", ephemeral=True)
 			return
-		if view.step == 4 and not view.state["closed_ticket_category_id"]:
-			await interaction.response.send_message("Select a closed ticket category.", ephemeral=True)
+		if view.step == 4 and not view.state["ticket_archive_channel_id"]:
+			await interaction.response.send_message("Select a ticket archive channel.", ephemeral=True)
 			return
 		if view.step == 5 and not view.state["panel_destination_channel_id"]:
 			await interaction.response.send_message("Select a panel destination channel.", ephemeral=True)
@@ -586,9 +618,9 @@ class FinishPanelButton(discord.ui.Button):
 			await interaction.response.send_message("Configured ticket category was not found.", ephemeral=True)
 			return
 
-		closed_category = view.guild.get_channel(int(view.state.get("closed_ticket_category_id") or 0))
-		if not isinstance(closed_category, discord.CategoryChannel):
-			await interaction.response.send_message("Configured closed ticket category was not found.", ephemeral=True)
+		archive_channel = view.guild.get_channel(int(view.state.get("ticket_archive_channel_id") or 0))
+		if not isinstance(archive_channel, discord.TextChannel):
+			await interaction.response.send_message("Configured ticket archive channel was not found.", ephemeral=True)
 			return
 
 		panel_destination_channel = view.guild.get_channel(int(view.state["panel_destination_channel_id"] or 0))
@@ -627,7 +659,7 @@ class FinishPanelButton(discord.ui.Button):
 			"panel_name": view.state["panel_name"],
 			"management_role_ids": view.state["management_role_ids"],
 			"ticket_category_id": view.state["ticket_category_id"],
-			"closed_ticket_category_id": view.state["closed_ticket_category_id"],
+			"ticket_archive_channel_id": view.state["ticket_archive_channel_id"],
 			"panel_destination_channel_id": view.state["panel_destination_channel_id"],
 			"panel_message": view.state["panel_message"],
 			"ticket_message": view.state["ticket_message"],
@@ -840,16 +872,129 @@ class TicketOpenView(discord.ui.View):
 			await interaction.response.send_message("Ticket panel configuration was not found.", ephemeral=True)
 			return
 
+		await interaction.response.send_modal(_OpenTicketNicknameModal(self.bot, panel_id=str(panel.get("id"))))
+
+
+def _format_int(value: object) -> str:
+	try:
+		return f"{int(value):,}"
+	except Exception:
+		return "0"
+
+
+def _extract_pve_fame(profile: dict) -> int:
+	stats = profile.get("LifetimeStatistics")
+	if not isinstance(stats, dict):
+		return 0
+	pve = stats.get("PvE")
+	if not isinstance(pve, dict):
+		return 0
+	try:
+		return int(pve.get("Total") or 0)
+	except Exception:
+		return 0
+
+
+def _build_character_confirm_embed(profile: dict) -> discord.Embed:
+	nickname = profile.get("Name") or "Unknown"
+	guild_name = profile.get("GuildName") or "(no guild)"
+	kill_fame = profile.get("KillFame") or 0
+	death_fame = profile.get("DeathFame") or 0
+	fame_ratio = profile.get("FameRatio")
+	pve_total = _extract_pve_fame(profile)
+
+	embed = discord.Embed(title="Is this your character?")
+	embed.add_field(name="Nickname", value=str(nickname), inline=False)
+	embed.add_field(name="Current guild", value=str(guild_name), inline=False)
+	embed.add_field(name="Kill Fame", value=_format_int(kill_fame), inline=True)
+	embed.add_field(name="Death Fame", value=_format_int(death_fame), inline=True)
+	embed.add_field(name="Fame Ratio", value=str(fame_ratio if fame_ratio is not None else "0"), inline=True)
+	embed.add_field(name="PvE Fame", value=_format_int(pve_total), inline=True)
+	return embed
+
+
+def _build_general_info_embed(profile: dict) -> discord.Embed:
+	nickname = profile.get("Name") or "Unknown"
+	guild_name = profile.get("GuildName") or "(no guild)"
+	kill_fame = profile.get("KillFame") or 0
+	death_fame = profile.get("DeathFame") or 0
+	fame_ratio = profile.get("FameRatio")
+	pve_total = _extract_pve_fame(profile)
+
+	embed = discord.Embed(title="General Info")
+	embed.add_field(name="Nickname", value=str(nickname), inline=False)
+	embed.add_field(name="Current guild", value=str(guild_name), inline=False)
+	embed.add_field(name="Kill Fame", value=_format_int(kill_fame), inline=True)
+	embed.add_field(name="Death Fame", value=_format_int(death_fame), inline=True)
+	embed.add_field(name="Fame Ratio", value=str(fame_ratio if fame_ratio is not None else "0"), inline=True)
+	embed.add_field(name="PvE Fame", value=_format_int(pve_total), inline=True)
+	return embed
+
+
+class _OpenTicketNicknameModal(discord.ui.Modal, title="Open Ticket"):
+	character_nickname = discord.ui.TextInput(
+		label="Enter your character ingame nickname",
+		required=True,
+		max_length=40,
+		placeholder="ING",
+	)
+
+	def __init__(self, bot, panel_id: str):
+		super().__init__()
+		self._bot = bot
+		self._panel_id = panel_id
+
+	async def on_submit(self, interaction: discord.Interaction) -> None:
+		if interaction.guild is None:
+			await interaction.response.send_message("This can only be used inside a server.", ephemeral=True)
+			return
+
+		nickname = str(self.character_nickname).strip()
+		if not nickname:
+			await interaction.response.send_message("Please enter a character nickname.", ephemeral=True)
+			return
+
+		profile = await asyncio.to_thread(albion_client.get_player_profile_by_exact_nickname, nickname)
+		if not profile:
+			await interaction.response.send_message(
+				"Character not found. Please check the nickname and try again.",
+				ephemeral=True,
+			)
+			return
+
+		view = _TicketCharacterConfirmView(self._bot, user_id=interaction.user.id, panel_id=self._panel_id, profile=profile)
+		await interaction.response.send_message(embed=_build_character_confirm_embed(profile), view=view, ephemeral=True)
+
+
+class _TicketCharacterConfirmView(discord.ui.View):
+	def __init__(self, bot, user_id: int, panel_id: str, profile: dict):
+		super().__init__(timeout=300)
+		self._bot = bot
+		self._user_id = int(user_id)
+		self._panel_id = str(panel_id)
+		self._profile = profile
+
+	async def _ensure_owner(self, interaction: discord.Interaction) -> bool:
+		return interaction.user.id == self._user_id
+
+	@discord.ui.button(label="Yes, Open Ticket", style=discord.ButtonStyle.success)
+	async def yes_open(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+		if not await self._ensure_owner(interaction):
+			return
+		if interaction.guild is None:
+			return
+
+		panel = _get_panel_by_id(interaction.guild.id, self._panel_id)
+		if panel is None:
+			await interaction.response.send_message("Ticket panel configuration was not found.", ephemeral=True)
+			return
+
 		category = interaction.guild.get_channel(int(panel.get("ticket_category_id", 0) or 0))
 		if not isinstance(category, discord.CategoryChannel):
 			await interaction.response.send_message("Configured ticket category was not found.", ephemeral=True)
 			return
 
-		existing_ticket_channel = _find_existing_open_ticket_channel(
-			interaction.guild,
-			str(panel.get("id")),
-			interaction.user.id,
-		)
+		existing_ticket_channel = _find_existing_open_ticket_channel(interaction.guild, str(panel.get("id")), interaction.user.id)
 		if existing_ticket_channel is not None:
 			await interaction.response.send_message(
 				f"You already have an open ticket: {existing_ticket_channel.mention}",
@@ -857,38 +1002,59 @@ class TicketOpenView(discord.ui.View):
 			)
 			return
 
+		await interaction.response.edit_message(content="Opening ticket...", embed=None, view=None)
+
 		ticket_number = _consume_ticket_number(interaction.guild.id)
-		opener_display_name = getattr(interaction.user, "display_name", None) or interaction.user.name
-		opener_slug = _get_ticket_opener_slug("open", opener_display_name, ticket_number)
+		character_nickname = (self._profile.get("Name") or "user").strip() or "user"
+		albion_id = self._profile.get("Id")
+		opener_slug = _get_ticket_opener_slug("open", character_nickname, ticket_number)
 		ticket_name = _build_ticket_channel_name("open", opener_slug, ticket_number)
+
 		overwrites = {
 			interaction.guild.default_role: discord.PermissionOverwrite(view_channel=False),
 			interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
 			interaction.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True, manage_messages=True, read_message_history=True),
 		}
-
 		for role_id in panel.get("management_role_ids", []):
 			role = interaction.guild.get_role(int(role_id))
 			if role is not None:
 				overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
 
-		channel = await interaction.guild.create_text_channel(
-			name=ticket_name,
-			category=category,
-			overwrites=overwrites,
-			topic=_build_ticket_topic_with_slug(str(panel.get("id")), interaction.user.id, ticket_number, opener_slug),
-		)
+		try:
+			channel = await interaction.guild.create_text_channel(
+				name=ticket_name,
+				category=category,
+				overwrites=overwrites,
+				topic=_build_ticket_topic_with_character(
+					str(panel.get("id")),
+					interaction.user.id,
+					ticket_number,
+					opener_slug,
+					character_nickname,
+					str(albion_id) if albion_id else None,
+				),
+			)
+		except discord.Forbidden:
+			await interaction.followup.send("I couldn't create the ticket channel (missing permissions).", ephemeral=True)
+			return
+		except discord.HTTPException:
+			await interaction.followup.send("Discord API error while creating the ticket channel.", ephemeral=True)
+			return
 
 		management_names = _format_role_names(interaction.guild, panel.get("management_role_ids", []))
-		embed = discord.Embed(
-			title=f"Ticket {ticket_number:04d}",
-			description=panel.get("ticket_message") or _get_default_ticket_message(),
-		)
+		embed = discord.Embed(title=f"Ticket {ticket_number:04d}", description=panel.get("ticket_message") or _get_default_ticket_message())
 		embed.add_field(name="Applicant", value=interaction.user.mention, inline=False)
 		embed.add_field(name="Management team", value=management_names, inline=False)
-		await channel.send(content=interaction.user.mention, embed=embed, view=TicketCloseView(self.bot))
+		await channel.send(content=interaction.user.mention, embed=embed, view=TicketCloseView(self._bot))
+		await channel.send(embed=_build_general_info_embed(self._profile))
 
-		await interaction.response.send_message(f"Ticket created: {channel.mention}", ephemeral=True)
+		await interaction.followup.send(f"Ticket created: {channel.mention}", ephemeral=True)
+
+	@discord.ui.button(label="No, Cancel", style=discord.ButtonStyle.secondary)
+	async def no_cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+		if not await self._ensure_owner(interaction):
+			return
+		await interaction.response.edit_message(content="Cancelled.", embed=None, view=None)
 
 
 class TicketCloseView(discord.ui.View):
@@ -908,9 +1074,6 @@ class TicketCloseView(discord.ui.View):
 
 		metadata = _parse_ticket_topic(interaction.channel.topic)
 		panel_id = metadata.get("panel_id")
-		ticket_number_raw = metadata.get("ticket_number", "0")
-		opener_id_raw = metadata.get("opener_id", "0")
-		opener_slug_raw = metadata.get("opener_slug")
 		panel = _get_panel_by_id(interaction.guild.id, panel_id) if panel_id else None
 		if panel is None:
 			await interaction.response.send_message("Ticket configuration was not found.", ephemeral=True)
@@ -921,41 +1084,75 @@ class TicketCloseView(discord.ui.View):
 			return
 
 		if interaction.channel.name.startswith("closed-"):
-			await interaction.response.send_message("This ticket is already closed.", ephemeral=True)
+			await interaction.response.send_message("This ticket is already being closed.", ephemeral=True)
 			return
 
 		await interaction.response.defer(ephemeral=True)
 
-		opener_member = interaction.guild.get_member(int(opener_id_raw or 0)) if opener_id_raw.isdigit() else None
-		opener_display_name = (getattr(opener_member, "display_name", None) if opener_member is not None else None) or "user"
-		resolved_slug = opener_slug_raw or _slugify_channel_component(opener_display_name)
+		archive_channel_id = panel.get("ticket_archive_channel_id")
+		archive_channel = interaction.guild.get_channel(int(archive_channel_id or 0)) if archive_channel_id else None
+		if not isinstance(archive_channel, discord.TextChannel):
+			await interaction.followup.send(
+				"Ticket archive channel is not configured or not found. Ask an admin to recreate/update this panel.",
+				ephemeral=True,
+			)
+			return
 
-		ticket_number_int = int(ticket_number_raw or 0) if str(ticket_number_raw).isdigit() else 0
-		if ticket_number_int:
-			new_name = _build_ticket_channel_name("closed", resolved_slug, ticket_number_int)
-		else:
-			new_name = f"closed-{_slugify_channel_component(resolved_slug)}-{interaction.channel.id}"
+		bot_member = interaction.guild.me
+		if bot_member is None:
+			await interaction.followup.send("Bot member information unavailable. Try again.", ephemeral=True)
+			return
+		perms = archive_channel.permissions_for(bot_member)
+		if not (perms.view_channel and perms.send_messages and perms.create_public_threads and perms.send_messages_in_threads):
+			await interaction.followup.send(
+				f"I need permissions in {archive_channel.mention} to archive tickets (send messages + create threads).",
+				ephemeral=True,
+			)
+			return
 
-		closed_category = None
-		closed_category_id = panel.get("closed_ticket_category_id")
-		if closed_category_id:
-			channel_obj = interaction.guild.get_channel(int(closed_category_id))
-			if isinstance(channel_obj, discord.CategoryChannel):
-				closed_category = channel_obj
+		character_nickname = _get_ticket_character_nickname(metadata) or "unknown"
 
-		edit_kwargs = {"name": new_name}
-		if closed_category is not None:
-			edit_kwargs["category"] = closed_category
+		archive_message = await archive_channel.send(content=str(character_nickname))
+		thread_name = (character_nickname or "unknown").strip()[:100] or "unknown"
 		try:
-			await interaction.channel.edit(**edit_kwargs)
-		except (discord.Forbidden, discord.HTTPException):
-			# Fall back to renaming only if moving categories is forbidden.
-			await interaction.channel.edit(name=new_name)
-		if opener_member is not None:
-			await interaction.channel.set_permissions(opener_member, send_messages=False, add_reactions=False)
+			thread = await archive_message.create_thread(name=thread_name, auto_archive_duration=10080)
+		except discord.Forbidden:
+			await interaction.followup.send("Could not create archive thread (missing permissions).", ephemeral=True)
+			return
+		except discord.HTTPException:
+			await interaction.followup.send("Discord API error while creating archive thread.", ephemeral=True)
+			return
 
-		await interaction.channel.send(f"Ticket closed by {interaction.user.mention}.")
-		await interaction.followup.send("Ticket closed.", ephemeral=True)
+		await thread.send(f"Archived from {interaction.channel.mention} by {interaction.user.mention}.")
+
+		async for msg in interaction.channel.history(limit=None, oldest_first=True):
+			author = getattr(msg.author, "display_name", None) or str(msg.author)
+			ts = msg.created_at.strftime("%Y-%m-%d %H:%M UTC") if msg.created_at else ""
+			content = msg.content or ""
+			attachments = [a.url for a in (msg.attachments or []) if getattr(a, "url", None)]
+			lines = [f"[{ts}] {author}:" ]
+			if content.strip():
+				lines.append(content)
+			if attachments:
+				lines.extend(attachments)
+			payload = "\n".join(lines).strip()
+			if not payload:
+				continue
+
+			while payload:
+				chunk = payload[:1900]
+				payload = payload[1900:]
+				await thread.send(chunk)
+				await asyncio.sleep(0.2)
+
+		await thread.send("Archive complete. Deleting ticket channel.")
+		try:
+			await interaction.channel.delete(reason="Ticket archived")
+		except (discord.Forbidden, discord.HTTPException):
+			await interaction.followup.send("Archived, but I couldn't delete the ticket channel (missing permissions).", ephemeral=True)
+			return
+
+		await interaction.followup.send(f"Ticket archived to {thread.mention} and deleted.", ephemeral=True)
 
 
 async def handle_tickets_setup(bot, interaction: discord.Interaction):
