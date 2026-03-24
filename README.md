@@ -153,13 +153,13 @@ Main setup entry has 2 buttons:
 
 ### Create Panel flow
 
-Panel creation uses 6 steps:
+Panel creation uses 7 steps:
 
 1. Set panel name
 2. Select management team role(s)
 3. Select open ticket category
-4. Select panel destination channel
-5. Select closed ticket category
+4. Select ticket archive channel
+5. Select panel destination channel
 6. Set panel message and ticket opening message
 7. Review summary and finish
 
@@ -172,14 +172,16 @@ The message step opens a modal where admin can customize:
 
 ### Ticket behavior
 
-- Clicking `Open Ticket` creates a new text channel under the selected category.
-- Ticket names are generated as `open-discord_name-0001`, `open-discord_name-0002`, and so on.
+- Clicking `Open Ticket` opens a modal where the user must enter their **Albion character nickname**.
+- The bot verifies the character exists and shows a confirmation panel with basic stats.
+- If user confirms, the bot creates a new text channel under the selected category.
+- Ticket names are generated as `open-character_nickname-0001`, `open-character_nickname-0002`, and so on.
 - Only the applicant and selected management team can view the ticket.
 - The ticket contains a `Close Ticket` button.
 - When management team closes the ticket:
-	- Channel is renamed to `closed-discord_name-0001`
- 	- Channel is moved to selected closed ticket category
-	- Applicant loses send permission
+	- Bot sends an archive entry to the configured ticket archive channel (message content: character nickname)
+	- Bot creates a thread under the archive message and forwards the ticket messages (including links and attachment URLs)
+	- Bot deletes the ticket channel
 
 ### Manage Panels
 
