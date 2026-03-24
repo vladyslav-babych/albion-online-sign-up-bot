@@ -246,16 +246,16 @@ The Objectives panel contains an `Add Objective` button.
 When clicked, it opens an ephemeral wizard with 2 objective types:
 
 - **Vortex**:
-	1. Select rarity (Common / Uncommon / Epic / Legendary)
-	2. Set pop time (UTC, `HH:MM`)
-	3. Set map name
-	4. Confirm
+1. Select rarity (Common / Uncommon / Epic / Legendary)  
+2. Set pop time (UTC, `HH:MM`)
+3. Set map name
+4. Confirm
 - **Node**:
-	1. Select node type (Wood / Hide / Ore / Fiber)
-	2. Select tier (4.4 / 5.4 / 6.4 / 7.4 / 8.4)
-	3. Set pop time (UTC, `HH:MM`)
-	4. Set map name
-	5. Confirm
+1. Select node type (Wood / Hide / Ore / Fiber)
+2. Select tier (4.4 / 5.4 / 6.4 / 7.4 / 8.4)
+3. Set pop time (UTC, `HH:MM`)
+4. Set map name
+5. Confirm
 
 After confirmation, the bot posts the objective as a separate message (with a `Remove Objective` button) in the same channel as the objectives panel.
 
@@ -317,7 +317,39 @@ Google Sheets operations use retry-with-backoff for quota (`429`) errors.
 
 ### `!create-comp <comp_message_id> <source_channel_id>`
 
-Before using this command, it is necessary to create a comp message. A Comp message can 
+Before using this command, it is necessary to create a comp message. A Comp message can consist of multiple parties and each party **MUST** start with the **Party** word.  
+
+Single party comp message example:
+
+```
+Party 1
+1. Tank
+2. Support
+3. DPS
+4. Heal
+```
+
+Multiple parties comp message example:
+
+```
+Party 1
+1. Tank
+2. Support
+3. DPS
+4. Heal
+
+Party 2
+1. Tank
+2. Support
+3. DPS
+4. Heal
+
+Party Battle Mounts
+1. Behemoth
+2. Chariot
+3. Balista
+4. Venom Basilisk
+```
 
 In `Party ... thread` threads:
 
