@@ -77,6 +77,8 @@ Configures per-server values:
 - Caller role(s) selection
 - Economy Manager role(s) selection
 - Member role selection
+- Bot updates channel selection
+- Leave guild action (Kick from server / Remove all roles / Do nothing)
 
 After setup, bot posts/updates a persistent **Bot configuration** message in the channel.
 
@@ -96,9 +98,9 @@ Your linked Google Sheet is required to have 3 worksheets with the **EXACT** nam
 
 - **Players** worksheet, column names **MUST** match those that are indicated in the example (values are for example):
 
-| Discord ID | Albion Nickname | Silver |
-|------------|-----------------|--------|
-| 1234567890 | Nickname | 0 |  
+| Discord ID | Albion Nickname | Is In Guild | Silver |
+|------------|-----------------|------------|--------|
+| 1234567890 | Nickname | YES | 0 |  
 
 - **Lootsplit History** worksheet, column names **MUST** match those that are indicated in the example (values are for example):
 
@@ -129,16 +131,28 @@ Supported fields:
 2. Caller role(s)
 3. Economy Manager role(s)
 4. Member role
-5. Credentials file
-6. Google Sheet name
-7. Players Worksheet name
-8. Lootsplit History Worksheet name
-9. Balance History Worksheet name
+5. Leave guild action
+6. Credentials file
+7. Google Sheet name
+8. Players Worksheet name
+9. Lootsplit History Worksheet name
+10. Balance History Worksheet name
 
 Safety checks:
 
 - Guild name update is blocked if already used by another server.
 - Credentials file update requires the file to exist in `google_sheet_credentials/`.
+
+## Guild membership tracking
+
+The bot runs a background audit every **5 minutes** to detect players who left the configured Albion guild.
+
+- If Google Sheets is linked, the bot uses the Players worksheet as the registration source of truth and updates **Is In Guild** from `YES` → `NO` when a player is detected outside the guild.
+- The configured **Leave guild action** is then applied:
+	- **Kick from server**
+	- **Remove all roles** (all non-managed roles the bot is allowed to remove)
+	- **Do nothing**
+- If Google Sheets is **not** linked, the bot still enforces the action by scanning Discord members with the configured **Member** role and matching their Discord nickname/display name to an Albion character name.
 
 ## Ticket system
 

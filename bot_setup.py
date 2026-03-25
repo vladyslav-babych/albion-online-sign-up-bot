@@ -29,9 +29,20 @@ def _format_channel_mention(channel_id: Optional[int]) -> str:
     return f"<#{channel_id}>"
 
 
+def _format_leave_action(value: Optional[str]) -> str:
+    normalized = (value or "").strip().lower()
+    if normalized == "kick":
+        return "Kick from server"
+    if normalized == "remove_roles":
+        return "Remove all roles"
+    if normalized == "none":
+        return "Do nothing"
+    return "Not selected"
+
+
 def _build_bot_setup_step_embed(view: "BotSetupStepView") -> discord.Embed:
     state = view.state
-    embed = discord.Embed(title=f"Bot Setup - Step {view.step}/6")
+    embed = discord.Embed(title=f"Bot Setup - Step {view.step}/7")
 
     if view.step == 1:
         embed.description = "## :pencil: Set guild name via modal"
@@ -64,6 +75,13 @@ def _build_bot_setup_step_embed(view: "BotSetupStepView") -> discord.Embed:
             value=_format_channel_mention(state["bot_updates_channel_id"]),
             inline=False,
         )
+    elif view.step == 6:
+        embed.description = "## :door: Choose action when player leaves the guild"
+        embed.add_field(
+            name="Selected action",
+            value=_format_leave_action(state.get("leave_action")),
+            inline=False,
+        )
     else:
         embed.description = "## :clipboard: Review summary and confirm setup"
         embed.add_field(name="Guild name", value=state["target_guild_name"] or "Not set", inline=False)
@@ -87,6 +105,11 @@ def _build_bot_setup_step_embed(view: "BotSetupStepView") -> discord.Embed:
             value=_format_channel_mention(state["bot_updates_channel_id"]),
             inline=False,
         )
+        embed.add_field(
+            name="Leave guild action",
+            value=_format_leave_action(state.get("leave_action")),
+            inline=False,
+        )
     return embed
 
 
@@ -96,6 +119,7 @@ def _apply_server_setup(
     member_role_name: str = "Member",
     caller_role_name: str = "Caller",
     economy_manager_role_name: str = "Economy Manager",
+    leave_action: str = "remove_roles",
 ) -> Tuple[bool, str]:
     target_guild_name = target_guild_name.strip()
 
@@ -117,11 +141,37 @@ def _apply_server_setup(
         member_role_name,
         caller_role_name,
         economy_manager_role_name,
+        leave_action,
     )
     return (
         True,
         f"Setup saved. Discord server ID **{discord_server_id}** is now mapped to the guild **{target_guild_name}**.",
     )
+
+
+class BotSetupLeaveActionSelect(discord.ui.Select):
+    def __init__(self, custom_id: str):
+        options = [
+            discord.SelectOption(label="Kick from server", value="kick"),
+            discord.SelectOption(label="Remove all roles", value="remove_roles"),
+            discord.SelectOption(label="Do nothing", value="none"),
+        ]
+        super().__init__(
+            placeholder="Choose action when player leaves the guild",
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id=custom_id,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view = self.view
+        if not isinstance(view, BotSetupStepView):
+            return
+        if not await view.ensure_owner(interaction):
+            return
+        view.state["leave_action"] = self.values[0]
+        await interaction.response.edit_message(embed=_build_bot_setup_step_embed(view), view=view)
 
 
 class BotSetupGuildNameModal(discord.ui.Modal, title='Set Guild Name'):
@@ -228,6 +278,7 @@ class BotSetupStepView(discord.ui.View):
             "economy_manager_role_ids": [],
             "member_role_ids": [],
             "bot_updates_channel_id": None,
+            "leave_action": "remove_roles",
         }
         self.host_message: Optional[discord.Message] = None
         self._render_nonce = 0
@@ -259,12 +310,15 @@ class BotSetupStepView(discord.ui.View):
         elif self.step == 5:
             self.add_item(BotSetupUpdatesChannelSelect(custom_id=f"bot-setup-updates-{self._render_nonce}"))
             self.add_item(BotSetupContinueButton())
+        elif self.step == 6:
+            self.add_item(BotSetupLeaveActionSelect(custom_id=f"bot-setup-leave-action-{self._render_nonce}"))
+            self.add_item(BotSetupContinueButton())
         else:
             self.add_item(BotSetupFinishButton())
             self.add_item(BotSetupCancelButton())
 
     def next_step(self) -> None:
-        self.step = min(6, self.step + 1)
+        self.step = min(7, self.step + 1)
         self._build_items()
 
     def previous_step(self) -> None:
@@ -325,6 +379,9 @@ class BotSetupContinueButton(discord.ui.Button):
         if view.step == 5 and not view.state["bot_updates_channel_id"]:
             await interaction.response.send_message("Select updates channel.", ephemeral=True)
             return
+        if view.step == 6 and not (view.state.get("leave_action") or "").strip():
+            await interaction.response.send_message("Select leave guild action.", ephemeral=True)
+            return
 
         view.next_step()
         await interaction.response.edit_message(embed=_build_bot_setup_step_embed(view), view=view)
@@ -347,6 +404,9 @@ class BotSetupFinishButton(discord.ui.Button):
         if not view.state["bot_updates_channel_id"]:
             await interaction.response.send_message("Select updates channel.", ephemeral=True)
             return
+        if not (view.state.get("leave_action") or "").strip():
+            await interaction.response.send_message("Select leave guild action.", ephemeral=True)
+            return
 
         caller_role_names = _resolve_role_names(view.guild, view.state["caller_role_ids"])
         economy_manager_role_names = _resolve_role_names(view.guild, view.state["economy_manager_role_ids"])
@@ -358,6 +418,7 @@ class BotSetupFinishButton(discord.ui.Button):
             member_role_names[0] if member_role_names else "Member",
             ", ".join(caller_role_names) if caller_role_names else "Caller",
             ", ".join(economy_manager_role_names) if economy_manager_role_names else "Economy Manager",
+            view.state.get("leave_action") or "remove_roles",
         )
         if not success:
             await interaction.response.send_message(message, ephemeral=True)

@@ -5,8 +5,8 @@ from typing import List, Optional
 
 BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo'
 SEARCH_ENDPOINT = '/search?q='
-BATTLE_ENDPOINT = '/battles/' # + battle_id
-PLAYER_ENDPOINT = '/players/'  # + player_id
+BATTLE_ENDPOINT = '/battles/'
+PLAYER_ENDPOINT = '/players/'
 
 
 def _get_search_url(query):

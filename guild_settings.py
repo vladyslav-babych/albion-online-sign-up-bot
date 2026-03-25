@@ -39,6 +39,7 @@ def set_target_guild(
     member_role_name: str = "Member",
     caller_role_name: str = "Caller",
     economy_manager_role_name: str = "Economy Manager",
+    leave_action: Optional[str] = None,
 ) -> None:
     config = _load_config()
     server_key = str(discord_server_id)
@@ -48,8 +49,23 @@ def set_target_guild(
     base_entry["member_role_name"] = member_role_name.strip() or "Member"
     base_entry["caller_role_name"] = caller_role_name.strip() or "Caller"
     base_entry["economy_manager_role_name"] = economy_manager_role_name.strip() or "Economy Manager"
+    normalized_leave_action = (leave_action or "").strip().lower()
+    if normalized_leave_action:
+        base_entry["leave_action"] = normalized_leave_action if normalized_leave_action in {"kick", "remove_roles", "none"} else "remove_roles"
+    else:
+        existing_leave_action = (base_entry.get("leave_action") or "").strip().lower()
+        base_entry["leave_action"] = existing_leave_action if existing_leave_action in {"kick", "remove_roles", "none"} else "remove_roles"
     config[server_key] = base_entry
     _save_config(config)
+
+
+def get_leave_action(discord_server_id: int) -> str:
+    config = _load_config()
+    entry = config.get(str(discord_server_id))
+    if not entry:
+        return "remove_roles"
+    value = (entry.get("leave_action") or "").strip().lower()
+    return value if value in {"kick", "remove_roles", "none"} else "remove_roles"
 
 
 def get_target_guild(discord_server_id: int) -> Optional[str]:
@@ -160,6 +176,18 @@ def get_all_bot_updates_channels() -> dict[int, int]:
 
         result[parsed_server_id] = parsed_channel_id
 
+    return result
+
+
+def get_all_configured_server_ids() -> list[int]:
+    config = _load_config()
+    result: list[int] = []
+    for server_id in config.keys():
+        try:
+            parsed = int(server_id)
+        except (TypeError, ValueError):
+            continue
+        result.append(parsed)
     return result
 
 

@@ -13,11 +13,15 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 ### Added
 
 - Discord bot core with per-server setup and configuration:
-  - `/bot-setup` to configure guild name + roles (caller/economy/member) and post a persistent configuration panel.
-  - `/update-config` interactive config update panel for setup values.
+  - `/bot-setup` to configure guild name + roles (caller/economy/member), bot updates channel, and leave-guild action, then post a persistent configuration panel.
+  - `/update-config` interactive config update panel for setup values (including leave-guild action).
 - Google Sheets integration:
   - `/bot-link-google-sheet` to store service account credentials locally and link a sheet + worksheet names.
   - Lootsplit logging and balance history logging to the configured worksheets.
+- Guild membership tracking:
+  - Background audit every 5 minutes to detect when a player leaves the configured Albion guild.
+  - Configurable action: kick from server, remove all roles, or do nothing.
+  - Enforcement runs even if Google Sheets is not linked (role-based audit fallback).
 - Ticket system:
   - `/tickets-setup` wizard to create/manage ticket panels for guild applications.
   - Ticket channels with open/close workflow and permission gating.
@@ -32,6 +36,12 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 - Objectives panel:
   - `/set-objective-panel` to post/update a persistent objectives panel.
   - Objective wizard to post Vortex/Node objectives with automatic expiry after pop.
+
+### Changed
+
+- Players worksheet schema now has 4 columns: Discord ID, Albion Nickname, Is In Guild (YES/NO), Silver.
+  - `/register` writes `Is In Guild=YES`.
+  - Balance and lootsplit operations read/write Silver from column D.
 
 ### Security
 
