@@ -54,11 +54,11 @@ async def _process_all_servers(bot: discord.Client) -> None:
             await _process_server_with_sheet(bot, guild, target_guild_name, leave_action, worksheet)
         except Exception as err:
             logging.info(
-                "Tracker: no sheet linked/available for server %s (%s). Falling back to role-based audit.",
+                "Tracker: no sheet linked/available for server %s (%s). Skipping enforcement.",
                 server_id,
                 err,
             )
-            await _process_server_without_sheet(bot, guild, target_guild_name, leave_action)
+            continue
 
 
 async def _process_server_with_sheet(
@@ -142,55 +142,6 @@ def _worksheet_supports_in_guild_flag(rows: list[list[str]]) -> bool:
 
     return True
 
-
-async def _process_server_without_sheet(
-    bot: discord.Client,
-    guild: discord.Guild,
-    target_guild_name: str,
-    leave_action: str,
-) -> None:
-    if (leave_action or "").strip().lower() == "none":
-        return
-
-    member_role_name = guild_settings.get_member_role(guild.id)
-    member_role = discord.utils.get(guild.roles, name=member_role_name)
-    if member_role is None:
-        return
-
-    async for member in _iter_guild_members(guild):
-        if member_role not in member.roles:
-            continue
-
-        nickname_guess = (member.nick or member.display_name or "").strip()
-        if not nickname_guess:
-            continue
-
-        try:
-            profile = await asyncio.to_thread(albion_client.get_player_profile_by_exact_nickname, nickname_guess)
-        except Exception:
-            profile = None
-
-        if not isinstance(profile, dict):
-            continue
-
-        player_guild = (profile.get("GuildName") or "").strip()
-        in_guild = player_guild.casefold() == target_guild_name.strip().casefold()
-        if in_guild:
-            continue
-
-        await _apply_leave_action(bot, guild, member, leave_action)
-
-
-async def _iter_guild_members(guild: discord.Guild):
-    try:
-        async for m in guild.fetch_members(limit=None):
-            yield m
-        return
-    except Exception:
-        pass
-
-    for m in list(getattr(guild, "members", []) or []):
-        yield m
 
 async def _apply_leave_action(bot: discord.Client, guild: discord.Guild, member: discord.Member, leave_action: str) -> None:
     action = (leave_action or "").strip().lower()
