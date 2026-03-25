@@ -51,7 +51,17 @@ async def register_user(context, nickname: str, worksheet, target_guild_name: Op
     exists, conflict_field = google_sheets.registration_exists(worksheet, discord_id, player_name)
     if exists:
         if conflict_field == 'discord_id':
-            await context.send(f"You are already registered with another character.")
+            updated = google_sheets.reactivate_registration(worksheet, discord_id, player_name)
+            if updated:
+                await sync_discord_nickname(context.author, player_name)
+                member_role_name = guild_settings.get_member_role(context.guild.id)
+                await add_member_role(context.author, member_role_name)
+                await context.send(
+                    f"Your registration was updated and **{player_name}** is marked as **in guild** again."
+                )
+                return
+
+            await context.send("You are already registered.")
             return
 
         await context.send(f"Character **{player_name}** is already registered.")

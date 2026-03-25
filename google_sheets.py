@@ -152,6 +152,59 @@ def registration_exists(worksheet, discord_id, albion_nickname):
 	return False, None
 
 
+def find_registration_row_by_discord_id(worksheet, discord_id) -> Optional[tuple[int, list[str]]]:
+	discord_id_str = str(discord_id).strip()
+	if not discord_id_str:
+		return None
+
+	rows = _call_with_backoff(lambda: worksheet.get_all_values())
+	for index, row in enumerate(rows, start=1):
+		if not row:
+			continue
+		current_discord_id = (row[0] if len(row) >= 1 else "").strip()
+		if current_discord_id == discord_id_str:
+			return index, row
+
+	return None
+
+
+def reactivate_registration(worksheet, discord_id, albion_nickname: str) -> bool:
+	found = find_registration_row_by_discord_id(worksheet, discord_id)
+	if not found:
+		return False
+
+	row_index, row = found
+	current_flag = (row[2] if len(row) >= 3 else "").strip().upper()
+	if current_flag == "YES":
+		return False
+
+	nickname_value = (albion_nickname or "").strip()
+	if not nickname_value:
+		return False
+
+	if len(row) >= 4:
+		_call_with_backoff(lambda: worksheet.update(
+			f"B{row_index}:C{row_index}",
+			[[nickname_value, "YES"]],
+			value_input_option="RAW",
+		))
+		return True
+
+	silver_value = "0"
+	if len(row) == 3:
+		third_value = (row[2] or "").strip()
+		if third_value and third_value.upper() not in {"YES", "NO"}:
+			silver_value = third_value
+
+	new_row_values = [str(discord_id).strip(), nickname_value, "YES", str(silver_value).strip() or "0"]
+	_call_with_backoff(lambda: worksheet.update(
+		f"A{row_index}:D{row_index}",
+		[new_row_values],
+		value_input_option="RAW",
+	))
+	return True
+
+
 def add_user_to_worksheet(worksheet, discord_id, albion_nickname, silver=0):
 	new_row_values = [
 		str(discord_id),
