@@ -156,6 +156,7 @@ def add_user_to_worksheet(worksheet, discord_id, albion_nickname, silver=0):
 	new_row_values = [
 		str(discord_id),
 		albion_nickname,
+		"YES",
 		str(silver),
 	]
 
@@ -163,7 +164,7 @@ def add_user_to_worksheet(worksheet, discord_id, albion_nickname, silver=0):
 	first_empty_row = None
 
 	for index, row in enumerate(rows, start=1):
-		row_values = row[:3] + [""] * max(0, 3 - len(row))
+		row_values = row[:4] + [""] * max(0, 4 - len(row))
 		if all(not value.strip() for value in row_values):
 			first_empty_row = index
 			break
@@ -171,7 +172,27 @@ def add_user_to_worksheet(worksheet, discord_id, albion_nickname, silver=0):
 	if first_empty_row is None:
 		first_empty_row = len(rows) + 1
 
-	worksheet.update(f"A{first_empty_row}:C{first_empty_row}", [new_row_values])
+	worksheet.update(f"A{first_empty_row}:D{first_empty_row}", [new_row_values])
+
+
+def batch_update_in_guild_flags(worksheet, updates: list[tuple[int, str]]):
+	if not updates:
+		return
+	requests = []
+	for row_index, value in updates:
+		try:
+			row_index_int = int(row_index)
+		except (TypeError, ValueError):
+			continue
+		if row_index_int <= 0:
+			continue
+		requests.append({
+			"range": f"C{row_index_int}:C{row_index_int}",
+			"values": [[str(value).strip()]],
+		})
+	if not requests:
+		return
+	_call_with_backoff(lambda: worksheet.batch_update(requests, value_input_option="RAW"))
 
 
 def get_registered_nicknames(worksheet) -> list[str]:
@@ -203,7 +224,7 @@ async def get_server_worksheet_or_notice(context):
         logging.exception("Google API error while loading worksheet: %s", error)
     except Exception as error:
         await context.send(
-            "Sheet configuration error: verify your Google Sheet, worksheet, and expected columns (Discord ID, Albion Nickname, Silver)."
+			"Sheet configuration error: verify your Google Sheet, worksheet, and expected columns (Discord ID, Albion Nickname, Is In Guild, Silver)."
         )
         logging.exception("Unexpected worksheet loading error: %s", error)
 

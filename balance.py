@@ -5,7 +5,7 @@ from typing import Optional
 
 COL_DISCORD_ID = 1
 COL_ALBION_NICKNAME = 2
-COL_SILVER = 3
+COL_SILVER = 4
 
 
 def _find_first_matched_target(worksheet, col_index: int, target: str):
@@ -41,7 +41,7 @@ def find_player_by_discord_id(rows: list, discord_id: int) -> Optional[tuple[int
             continue
         if row[0].strip() == discord_id_str:
             nickname = row[1].strip() if len(row) >= 2 else ""
-            raw_silver = row[2].strip() if len(row) >= 3 else ""
+            raw_silver = row[3].strip() if len(row) >= 4 else ""
             return row_index, nickname, _parse_silver_value(raw_silver)
     return None
 
@@ -134,7 +134,7 @@ def add_balances_for_lootsplit_batch(worksheet, participants: list[str], amount:
     if updated_silver_by_row:
         updates = [
             {
-                "range": f"C{row_index}:C{row_index}",
+                "range": f"D{row_index}:D{row_index}",
                 "values": [[str(updated_silver)]],
             }
             for row_index, updated_silver in sorted(updated_silver_by_row.items())

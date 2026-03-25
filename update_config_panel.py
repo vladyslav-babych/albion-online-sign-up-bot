@@ -13,12 +13,24 @@ _UPDATE_CONFIG_LABELS = {
     "caller_roles": "Caller role(s)",
     "economy_roles": "Economy Manager role(s)",
     "member_role": "Member role",
+    "leave_action": "Leave guild action",
     "credentials_file": "Credentials file",
     "google_sheet_name": "Google Sheet name",
     "players_worksheet": "Players Worksheet name",
     "lootsplit_worksheet": "Lootsplit History Worksheet name",
     "balance_worksheet": "Balance History Worksheet name",
 }
+
+
+def _format_leave_action(value: Optional[str]) -> str:
+    normalized = (value or "").strip().lower()
+    if normalized == "kick":
+        return "Kick from server"
+    if normalized == "remove_roles":
+        return "Remove all roles"
+    if normalized == "none":
+        return "Do nothing"
+    return "Not configured yet"
 
 
 def _resolve_role_ids_by_names(guild: discord.Guild, role_names: list[str]) -> list[int]:
@@ -31,6 +43,8 @@ def _resolve_role_ids_by_names(guild: discord.Guild, role_names: list[str]) -> l
 def _get_update_config_current_text(guild_id: int, field_key: str) -> str:
     if field_key == "guild_name":
         return guild_settings.get_target_guild(guild_id) or ""
+    if field_key == "leave_action":
+        return guild_settings.get_leave_action(guild_id) or ""
     if field_key == "credentials_file":
         info = google_sheet_credentials_store.get_credentials_info(guild_id)
         credentials_path = info.get("credentials_file") if info else None
@@ -57,6 +71,8 @@ def _get_update_config_current_role_ids(guild: discord.Guild, field_key: str) ->
 
 
 def _get_update_config_current_preview(guild: discord.Guild, field_key: str) -> str:
+    if field_key == "leave_action":
+        return _format_leave_action(guild_settings.get_leave_action(guild.id))
     if field_key == "caller_roles":
         return _format_named_role_mentions(guild, guild_settings.get_caller_roles(guild.id))
     if field_key == "economy_roles":
@@ -88,6 +104,8 @@ def _build_update_config_embed(view: "UpdateConfigView") -> discord.Embed:
                 value=_format_role_mentions_by_ids(view.guild, view.pending_role_ids),
                 inline=False,
             )
+        elif view.selected_field_key == "leave_action":
+            embed.add_field(name="Preview", value=_format_leave_action(view.pending_text_value), inline=False)
         else:
             embed.add_field(name="Preview", value=view.pending_text_value or "Not configured yet", inline=False)
 
@@ -169,6 +187,32 @@ class UpdateConfigRoleSelect(discord.ui.RoleSelect):
         await interaction.response.edit_message(embed=_build_update_config_embed(view), view=view)
 
 
+class UpdateConfigLeaveActionSelect(discord.ui.Select):
+    def __init__(self, custom_id: str):
+        options = [
+            discord.SelectOption(label="Kick from server", value="kick"),
+            discord.SelectOption(label="Remove all roles", value="remove_roles"),
+            discord.SelectOption(label="Do nothing", value="none"),
+        ]
+        super().__init__(
+            placeholder="Choose action when player leaves the guild",
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id=custom_id,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view = self.view
+        if not isinstance(view, UpdateConfigView):
+            return
+        if not await view.ensure_owner(interaction):
+            return
+        view.pending_text_value = self.values[0]
+        view.status_message = None
+        await interaction.response.edit_message(embed=_build_update_config_embed(view), view=view)
+
+
 class UpdateConfigOpenModalButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="Set Value", style=discord.ButtonStyle.primary)
@@ -227,7 +271,7 @@ class UpdateConfigSaveButton(discord.ui.Button):
 
         field_key = view.selected_field_key
 
-        if field_key in {"guild_name", "caller_roles", "economy_roles", "member_role"}:
+        if field_key in {"guild_name", "caller_roles", "economy_roles", "member_role", "leave_action"}:
             current_guild_name = guild_settings.get_target_guild(interaction.guild.id)
             if not current_guild_name:
                 await interaction.response.send_message("This server is not configured yet. Run **/bot-setup** first.", ephemeral=True)
@@ -237,6 +281,7 @@ class UpdateConfigSaveButton(discord.ui.Button):
             updated_caller_roles = ", ".join(guild_settings.get_caller_roles(interaction.guild.id))
             updated_economy_manager_roles = ", ".join(guild_settings.get_economy_manager_roles(interaction.guild.id))
             updated_member_role = guild_settings.get_member_role(interaction.guild.id)
+            updated_leave_action = guild_settings.get_leave_action(interaction.guild.id)
 
             if field_key == "guild_name":
                 new_value = view.pending_text_value.strip()
@@ -267,6 +312,12 @@ class UpdateConfigSaveButton(discord.ui.Button):
                     return
                 member_role_names = _resolve_role_names(interaction.guild, view.pending_role_ids)
                 updated_member_role = member_role_names[0] if member_role_names else "Member"
+            elif field_key == "leave_action":
+                new_value = (view.pending_text_value or "").strip().lower()
+                if new_value not in {"kick", "remove_roles", "none"}:
+                    await interaction.response.send_message("Select a valid leave action.", ephemeral=True)
+                    return
+                updated_leave_action = new_value
 
             guild_settings.set_target_guild(
                 interaction.guild.id,
@@ -274,6 +325,7 @@ class UpdateConfigSaveButton(discord.ui.Button):
                 updated_member_role,
                 updated_caller_roles,
                 updated_economy_manager_roles,
+                updated_leave_action,
             )
         else:
             link_field_map = {
@@ -352,6 +404,9 @@ class UpdateConfigView(discord.ui.View):
         self.add_item(UpdateConfigFieldSelect(self.selected_field_key, custom_id=f"update-config-field-{self._render_nonce}"))
         if self.selected_field_key in {"caller_roles", "economy_roles", "member_role"}:
             self.add_item(UpdateConfigRoleSelect(self.selected_field_key, custom_id=f"update-config-role-{self._render_nonce}"))
+            self.add_item(UpdateConfigSaveButton())
+        elif self.selected_field_key == "leave_action":
+            self.add_item(UpdateConfigLeaveActionSelect(custom_id=f"update-config-leave-action-{self._render_nonce}"))
             self.add_item(UpdateConfigSaveButton())
         elif self.selected_field_key is not None:
             self.add_item(UpdateConfigOpenModalButton())

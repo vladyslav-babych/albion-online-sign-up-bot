@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from pathlib import Path
 
 import discord
@@ -10,6 +9,7 @@ from dotenv import load_dotenv
 import command_handlers
 import comp_builder
 import guild_settings
+import guild_member_tracker
 import objectives
 import role_reaction
 import tickets
@@ -18,7 +18,7 @@ import tickets
 load_dotenv()
 
 
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv('DISCORD_TOKEN_TEST')
 BOT_RESTART_MESSAGE = os.getenv('BOT_RESTART_MESSAGE')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
@@ -64,6 +64,7 @@ async def on_ready():
         tickets.register_persistent_views(bot)
         objectives.register_persistent_views(bot)
         objectives.start_objectives_scheduler(bot)
+        guild_member_tracker.start_guild_member_tracker(bot)
         await bot.tree.sync()
         await _send_restart_notifications()
         slash_commands_synced = True
