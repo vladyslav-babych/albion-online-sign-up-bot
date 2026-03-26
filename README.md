@@ -152,7 +152,6 @@ The bot runs a background audit every **5 minutes** to detect players who left t
 	- **Kick from server**
 	- **Remove all roles** (all non-managed roles the bot is allowed to remove)
 	- **Do nothing**
-- If Google Sheets is **not** linked, the bot still enforces the action by scanning Discord members with the configured **Member** role and matching their Discord nickname/display name to an Albion character name.
 
 ## Ticket system
 
