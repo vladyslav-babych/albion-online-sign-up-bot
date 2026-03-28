@@ -1,6 +1,7 @@
 import requests
 import guild_settings
 from typing import List, Optional
+from urllib.parse import quote
 
 
 BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo'
@@ -14,12 +15,45 @@ def _get_search_url(query):
 
 
 def get_player_by_nickname(nickname):
-    url = _get_search_url(nickname)
+    url = _get_search_url(quote(str(nickname or "").strip()))
     response = requests.get(url).json()
     players = response.get('players', [])
     if not players:
         return None
     return players[0]
+
+
+def get_player_by_exact_nickname_search(nickname: str) -> Optional[dict]:
+    """Get the player object from the /search?q= endpoint by exact nickname match.
+
+    Returns the matching item from the `players` list (search endpoint schema), or None.
+    This is lower-latency than /players/{id}, but does not include LifetimeStatistics.
+    """
+    query = (nickname or "").strip()
+    if not query:
+        return None
+
+    url = _get_search_url(quote(query))
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return None
+
+    players = data.get("players", [])
+    if not isinstance(players, list):
+        return None
+
+    lowered = query.casefold()
+    for item in players:
+        if not isinstance(item, dict):
+            continue
+        name = (item.get("Name") or "").strip()
+        if name and name.casefold() == lowered:
+            return item
+
+    return None
 
 
 def find_player_id_by_exact_nickname(nickname: str) -> Optional[str]:
@@ -28,7 +62,7 @@ def find_player_id_by_exact_nickname(nickname: str) -> Optional[str]:
     if not query:
         return None
 
-    url = _get_search_url(query)
+    url = _get_search_url(quote(query))
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()

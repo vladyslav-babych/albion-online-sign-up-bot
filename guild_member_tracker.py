@@ -95,7 +95,7 @@ async def _process_server_with_sheet(
         discord_id = int(discord_id_raw)
 
         try:
-            profile = await asyncio.to_thread(albion_client.get_player_profile_by_exact_nickname, nickname)
+            profile = await asyncio.to_thread(albion_client.get_player_by_exact_nickname_search, nickname)
         except Exception:
             profile = None
 

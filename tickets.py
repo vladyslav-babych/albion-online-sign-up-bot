@@ -895,13 +895,12 @@ def _extract_pve_fame(profile: dict) -> int:
 		return 0
 
 
-def _build_character_confirm_embed(profile: dict) -> discord.Embed:
-	nickname = profile.get("Name") or "Unknown"
-	guild_name = profile.get("GuildName") or "(no guild)"
-	kill_fame = profile.get("KillFame") or 0
-	death_fame = profile.get("DeathFame") or 0
-	fame_ratio = profile.get("FameRatio")
-	pve_total = _extract_pve_fame(profile)
+def _build_character_confirm_embed(search_profile: dict, pve_total: int) -> discord.Embed:
+	nickname = search_profile.get("Name") or "Unknown"
+	guild_name = search_profile.get("GuildName") or "(no guild)"
+	kill_fame = search_profile.get("KillFame") or 0
+	death_fame = search_profile.get("DeathFame") or 0
+	fame_ratio = search_profile.get("FameRatio")
 
 	embed = discord.Embed(title="Is this your character?")
 	embed.add_field(name="Nickname", value=str(nickname), inline=False)
@@ -913,13 +912,12 @@ def _build_character_confirm_embed(profile: dict) -> discord.Embed:
 	return embed
 
 
-def _build_general_info_embed(profile: dict) -> discord.Embed:
-	nickname = profile.get("Name") or "Unknown"
-	guild_name = profile.get("GuildName") or "(no guild)"
-	kill_fame = profile.get("KillFame") or 0
-	death_fame = profile.get("DeathFame") or 0
-	fame_ratio = profile.get("FameRatio")
-	pve_total = _extract_pve_fame(profile)
+def _build_general_info_embed(search_profile: dict, pve_total: int) -> discord.Embed:
+	nickname = search_profile.get("Name") or "Unknown"
+	guild_name = search_profile.get("GuildName") or "(no guild)"
+	kill_fame = search_profile.get("KillFame") or 0
+	death_fame = search_profile.get("DeathFame") or 0
+	fame_ratio = search_profile.get("FameRatio")
 
 	embed = discord.Embed(title="General Info")
 	embed.add_field(name="Nickname", value=str(nickname), inline=False)
@@ -954,25 +952,39 @@ class _OpenTicketNicknameModal(discord.ui.Modal, title="Open Ticket"):
 			await interaction.response.send_message("Please enter a character nickname.", ephemeral=True)
 			return
 
-		profile = await asyncio.to_thread(albion_client.get_player_profile_by_exact_nickname, nickname)
-		if not profile:
+		search_profile = await asyncio.to_thread(albion_client.get_player_by_exact_nickname_search, nickname)
+		if not search_profile:
 			await interaction.response.send_message(
 				"Character not found. Please check the nickname and try again.",
 				ephemeral=True,
 			)
 			return
 
-		view = _TicketCharacterConfirmView(self._bot, user_id=interaction.user.id, panel_id=self._panel_id, profile=profile)
-		await interaction.response.send_message(embed=_build_character_confirm_embed(profile), view=view, ephemeral=True)
+		pve_total = 0
+		albion_id = search_profile.get("Id")
+		if albion_id:
+			player_profile = await asyncio.to_thread(albion_client.get_player_profile_by_id, str(albion_id))
+			if isinstance(player_profile, dict):
+				pve_total = _extract_pve_fame(player_profile)
+
+		view = _TicketCharacterConfirmView(
+			self._bot,
+			user_id=interaction.user.id,
+			panel_id=self._panel_id,
+			search_profile=search_profile,
+			pve_total=pve_total,
+		)
+		await interaction.response.send_message(embed=_build_character_confirm_embed(search_profile, pve_total), view=view, ephemeral=True)
 
 
 class _TicketCharacterConfirmView(discord.ui.View):
-	def __init__(self, bot, user_id: int, panel_id: str, profile: dict):
+	def __init__(self, bot, user_id: int, panel_id: str, search_profile: dict, pve_total: int):
 		super().__init__(timeout=300)
 		self._bot = bot
 		self._user_id = int(user_id)
 		self._panel_id = str(panel_id)
-		self._profile = profile
+		self._search_profile = search_profile
+		self._pve_total = int(pve_total or 0)
 
 	async def _ensure_owner(self, interaction: discord.Interaction) -> bool:
 		return interaction.user.id == self._user_id
@@ -1005,8 +1017,8 @@ class _TicketCharacterConfirmView(discord.ui.View):
 		await interaction.response.edit_message(content="Opening ticket...", embed=None, view=None)
 
 		ticket_number = _consume_ticket_number(interaction.guild.id)
-		character_nickname = (self._profile.get("Name") or "user").strip() or "user"
-		albion_id = self._profile.get("Id")
+		character_nickname = (self._search_profile.get("Name") or "user").strip() or "user"
+		albion_id = self._search_profile.get("Id")
 		opener_slug = _get_ticket_opener_slug("open", character_nickname, ticket_number)
 		ticket_name = _build_ticket_channel_name("open", opener_slug, ticket_number)
 
@@ -1046,7 +1058,7 @@ class _TicketCharacterConfirmView(discord.ui.View):
 		embed.add_field(name="Applicant", value=interaction.user.mention, inline=False)
 		embed.add_field(name="Management team", value=management_names, inline=False)
 		await channel.send(content=interaction.user.mention, embed=embed, view=TicketCloseView(self._bot))
-		await channel.send(embed=_build_general_info_embed(self._profile))
+		await channel.send(embed=_build_general_info_embed(self._search_profile, self._pve_total))
 
 		await interaction.followup.send(f"Ticket created: {channel.mention}", ephemeral=True)
 
