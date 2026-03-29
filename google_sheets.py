@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 import gspread
 from google.oauth2.service_account import Credentials
@@ -254,34 +255,34 @@ def get_registered_nicknames(worksheet) -> list[str]:
 
 
 async def get_server_worksheet_or_notice(context):
-    if context.guild is None:
-        await context.send("This command can only be used inside a server.")
-        return None
+	if context.guild is None:
+		await context.send("This command can only be used inside a server.")
+		return None
 
-    try:
-        return get_worksheet(context.guild.id)
-    except gspread.exceptions.SpreadsheetNotFound:
-        await context.send(
-            "Google Sheet setup error: your **Google Sheet Name** does not match or this bot has no access to that sheet. "
-            "Check **/bot-link-google-sheet** and share the sheet with the service account email."
-        )
-    except gspread.exceptions.WorksheetNotFound:
-        await context.send(
-            "Google Sheet setup error: your **Google Worksheet Name** does not match. "
-            "Check **/bot-link-google-sheet** and verify the worksheet tab name."
-        )
-    except gspread.exceptions.APIError as error:
-        await context.send(
-            "Google API error while opening the sheet. Verify Google APIs are enabled and the credentials are valid."
-        )
-        logging.exception("Google API error while loading worksheet: %s", error)
-    except Exception as error:
-        await context.send(
+	try:
+		return await asyncio.to_thread(get_worksheet, context.guild.id)
+	except gspread.exceptions.SpreadsheetNotFound:
+		await context.send(
+			"Google Sheet setup error: your **Google Sheet Name** does not match or this bot has no access to that sheet. "
+			"Check **/bot-link-google-sheet** and share the sheet with the service account email."
+		)
+	except gspread.exceptions.WorksheetNotFound:
+		await context.send(
+			"Google Sheet setup error: your **Google Worksheet Name** does not match. "
+			"Check **/bot-link-google-sheet** and verify the worksheet tab name."
+		)
+	except gspread.exceptions.APIError as error:
+		await context.send(
+			"Google API error while opening the sheet. Verify Google APIs are enabled and the credentials are valid."
+		)
+		logging.exception("Google API error while loading worksheet: %s", error)
+	except Exception as error:
+		await context.send(
 			"Sheet configuration error: verify your Google Sheet, worksheet, and expected columns (Discord ID, Albion Nickname, Is In Guild, Silver)."
-        )
-        logging.exception("Unexpected worksheet loading error: %s", error)
+		)
+		logging.exception("Unexpected worksheet loading error: %s", error)
 
-    return None
+	return None
 
 
 async def get_server_lootsplit_history_worksheet_or_notice(context):
@@ -290,7 +291,7 @@ async def get_server_lootsplit_history_worksheet_or_notice(context):
 		return None
 
 	try:
-		return get_worksheet(context.guild.id, worksheet_type=WORKSHEET_TYPE_LOOTSPLIT_HISTORY)
+		return await asyncio.to_thread(get_worksheet, context.guild.id, worksheet_type=WORKSHEET_TYPE_LOOTSPLIT_HISTORY)
 	except gspread.exceptions.SpreadsheetNotFound:
 		await context.send(
 			"Google Sheet setup error: your **Google Sheet Name** does not match or this bot has no access to that sheet. "
@@ -321,7 +322,7 @@ async def get_server_balance_history_worksheet_or_notice(context):
 		return None
 
 	try:
-		return get_worksheet(context.guild.id, worksheet_type=WORKSHEET_TYPE_BALANCE_HISTORY)
+		return await asyncio.to_thread(get_worksheet, context.guild.id, worksheet_type=WORKSHEET_TYPE_BALANCE_HISTORY)
 	except gspread.exceptions.SpreadsheetNotFound:
 		await context.send(
 			"Google Sheet setup error: your **Google Sheet Name** does not match or this bot has no access to that sheet. "
