@@ -8,6 +8,31 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - (add upcoming changes here)
 
+## [v1.0.0] - 2026-03-31
+
+### Added
+
+- Objectives:
+  - New objective type: **Core** (rarities and wizard steps aligned with Vortex).
+  - Objective notifications:
+    - Wizard step to select **Notify before pop** (5–60 minutes).
+    - Per-objective notification role + `Notify Me` button to opt-in.
+    - One-time pre-pop ping, and automatic cleanup of the notification role and ping message when the objective pops.
+- New slash commands:
+  - `/get-participants` (battle participation lookup)
+  - `/bal` (balance lookup)
+  - `/clear` (admin-only message purge)
+
+### Changed
+
+- Command UX: migrated legacy prefix commands to slash commands (kept `!create-comp` as prefix-only).
+- Albion API usage: standardized nickname lookup on `get_player_by_nickname` in features that previously used exact-search.
+- Registration reliability: added retry behavior to reduce false negatives from stale Albion API `GuildName` responses.
+
+### Fixed
+
+- Objectives rarity display formatting.
+
 ## [v0.1.0] - 2026-03-24
 
 ### Added
@@ -47,5 +72,6 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - Service account credentials and server configuration are stored as local JSON files on the machine hosting the bot. Treat the host as sensitive.
 
-[Unreleased]: compare/v0.1.0...HEAD
+[Unreleased]: compare/v1.0.0...HEAD
+[v1.0.0]: releases/tag/v1.0.0
 [v0.1.0]: releases/tag/v0.1.0

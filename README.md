@@ -40,32 +40,33 @@ python main.py
 ## Prefix commands
 
 - `!create-comp <comp_message_id> <source_channel_id>`
-- `!get-participants <battle_ids>`
-- `!bal [nickname]`
-- `!clear`
 
 ## Slash commands
 
 - `/bot-setup`
 - `/bot-link-google-sheet`
+- `/bot-remove`
 - `/tickets-setup`
 - `/role-reaction-setup`
 - `/set-objective-panel`
 - `/update-config`
 - `/register`
+- `/get-participants`
 - `/lootsplit`
+- `/bal`
 - `/bal-add`
 - `/bal-remove`
+- `/clear`
 
 ## Permissions model
 
 - Admin-only:
-	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `/bot-remove`, `!clear`
+	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `/bot-remove`, `/clear`
 - Economy operations (`/lootsplit`, `/bal-add`, `/bal-remove`):
 	- Allowed for Admins OR members with configured Economy Manager role(s)
 - Comp officer actions (`!create-comp`, forced sign-up/sign-out in party threads):
 	- Allowed for Admins OR members with configured Caller role(s)
-- `/register`, `!bal`, and normal thread self sign-up/sign-out are available without admin requirement.
+- `/register`, `/bal`, `/get-participants`, and normal thread self sign-up/sign-out are available without admin requirement.
 
 ## Bot setup and configuration
 
@@ -264,15 +265,39 @@ When clicked, it opens an ephemeral wizard with 2 objective types:
 1. Select rarity (Common / Uncommon / Epic / Legendary)  
 2. Set pop time (UTC, `HH:MM`)
 3. Set map name
-4. Confirm
+4. Notify before pop (5-60 minutes)
+5. Confirm
+
+- **Core**:
+1. Select rarity (Common / Uncommon / Epic / Legendary)
+2. Set pop time (UTC, `HH:MM`)
+3. Set map name
+4. Notify before pop (5-60 minutes)
+5. Confirm
 - **Node**:
 1. Select node type (Wood / Hide / Ore / Fiber)
 2. Select tier (4.4 / 5.4 / 6.4 / 7.4 / 8.4)
 3. Set pop time (UTC, `HH:MM`)
 4. Set map name
-5. Confirm
+5. Notify before pop (5-60 minutes)
+6. Confirm
 
-After confirmation, the bot posts the objective as a separate message (with a `Remove Objective` button) in the same channel as the objectives panel.
+After confirmation, the bot posts the objective as a separate message in the same channel as the objectives panel.
+
+Objective message buttons:
+
+- `Notify Me`: assigns a per-objective notification role to the clicker.
+- `Remove Objective`: removes the objective early (Admins and configured Caller role(s)).
+
+Objective notifications:
+
+- When an objective is posted, the bot creates (or reuses) a mentionable role like `Vortex-Epic-12:36` or `Wood-8.4-13:44`.
+- At the chosen lead time, the bot sends one ping message mentioning the role.
+- When the objective pops, the bot deletes the notification role and the ping message.
+
+Required permissions for notifications:
+
+- **Manage Roles** (bot role must be above the created roles) for role creation and assignment.
 
 ### Objective lifecycle
 
@@ -291,7 +316,7 @@ After confirmation, the bot posts the objective as a separate message (with a `R
 - Updates Discord nickname to Albion nickname.
 - Adds configured Member role.
 
-### `!bal [nickname]`
+### `/bal [nickname]`
 
 - Reads Silver from Players worksheet by Discord ID (self) or specified nickname.
 
@@ -419,4 +444,4 @@ In `Party ... thread` threads:
 
 ### `#comp-storage`
 
-- Channel where comp messages will be stored. Can send the `./create-comp 1234567890 0987654321` message to the quick access comp creation command.
+- Channel where comp messages will be stored. Can send the `.!create-comp 1234567890 0987654321` message to the quick access comp creation command.
