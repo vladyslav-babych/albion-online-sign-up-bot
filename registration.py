@@ -1,3 +1,4 @@
+import asyncio
 import discord
 import albion_client as client
 import google_sheets
@@ -18,6 +19,36 @@ async def add_member_role(member: discord.Member, role_name: str = 'Member'):
     await member.add_roles(role, reason=f'Add {role_name} role after registration')
 
 
+async def _get_player_info_with_retries(nickname: str, target_guild_name: str) -> Optional[dict]:
+    target = (target_guild_name or "").strip().casefold()
+    query = (nickname or "").strip()
+    last: Optional[dict] = None
+
+    delays = (0.0, 1.5, 3.0)
+    for attempt, delay in enumerate(delays, start=1):
+        if delay:
+            await asyncio.sleep(delay)
+
+        try:
+            info = await asyncio.to_thread(client.get_player_by_nickname, query)
+        except Exception:
+            info = None
+
+        if not isinstance(info, dict):
+            continue
+
+        last = info
+        guild_name = str(info.get('GuildName') or '').strip().casefold()
+
+        if guild_name and guild_name == target:
+            return info
+
+        if attempt < len(delays):
+            continue
+
+    return last
+
+
 async def register_user(context, nickname: str, worksheet, target_guild_name: Optional[str]):
     if not target_guild_name:
         await context.send(
@@ -25,16 +56,16 @@ async def register_user(context, nickname: str, worksheet, target_guild_name: Op
         )
         return
 
-    player_info = client.get_player_by_nickname(nickname)
+    player_info = await _get_player_info_with_retries(nickname, target_guild_name)
     if player_info is None:
         await context.send(f"Player with nickname **{nickname}** was not found.")
         return
 
     discord_id = context.author.id
-    player_name = player_info['Name']
-    player_guild = player_info['GuildName']
+    player_name = (player_info.get('Name') or nickname).strip()
+    player_guild = (player_info.get('GuildName') or '').strip()
 
-    if player_guild != target_guild_name:
+    if player_guild.casefold() != target_guild_name.strip().casefold():
         if player_guild:
             await context.send(
                 f"Character **{player_name}** is in **{player_guild}**.\n"

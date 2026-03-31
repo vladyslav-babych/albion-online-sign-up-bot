@@ -451,3 +451,36 @@ async def handle_clear(context):
         return
 
     await context.channel.purge()
+
+
+async def handle_clear_slash(interaction: discord.Interaction) -> None:
+    if interaction.guild is None or interaction.channel is None:
+        await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
+        return
+
+    if not isinstance(interaction.user, discord.Member) or not await globals.is_admin(interaction.user):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    if not isinstance(interaction.channel, discord.TextChannel):
+        await interaction.response.send_message("This command can only be used in a text channel.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    try:
+        await interaction.channel.purge(limit=100)
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "Missing permission to delete messages in this channel.",
+            ephemeral=True,
+        )
+        return
+    except discord.HTTPException:
+        await interaction.followup.send(
+            "Failed to clear messages (Discord API error).",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.followup.send("Cleared the last 100 messages.", ephemeral=True)

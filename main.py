@@ -78,9 +78,11 @@ async def create_comp_from_message(context, comp_message_id: int, source_channel
     await command_handlers.handle_create_comp_from_message(bot, context, comp_message_id, source_channel_id)
 
 
-@bot.command(name='get-participants')
-async def get_battle_participants(context, battle_ids: str):
-    await command_handlers.handle_get_battle_participants(context, battle_ids)
+@bot.tree.command(name='get-participants', description='List guild members participating in one or more battle IDs')
+async def get_battle_participants_slash(interaction: discord.Interaction, battle_ids: str):
+    await interaction.response.defer(thinking=True)
+    interaction_context = command_handlers._InteractionMessageAdapter(interaction)
+    await command_handlers.handle_get_battle_participants(interaction_context, battle_ids)
 
 
 @bot.tree.command(name='register', description='Register your Albion character')
@@ -144,9 +146,11 @@ async def bot_remove_slash(interaction: discord.Interaction):
     await command_handlers.handle_bot_remove_slash(interaction)
 
 
-@bot.command(name='bal')
-async def get_balance(context, nickname: str = None):
-    await command_handlers.handle_get_balance(context, nickname)
+@bot.tree.command(name='bal', description='Get silver balance (yours by default)')
+async def bal_slash(interaction: discord.Interaction, nickname: str = None):
+    await interaction.response.defer(thinking=True)
+    interaction_context = command_handlers._InteractionMessageAdapter(interaction)
+    await command_handlers.handle_get_balance(interaction_context, nickname)
 
 
 @bot.tree.command(name='bal-add', description='Add silver balance to a player')
@@ -182,9 +186,9 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent) -> Non
     await role_reaction.handle_raw_reaction_remove(bot, payload)
 
 
-@bot.command()
-async def clear(context):
-    await command_handlers.handle_clear(context)
+@bot.tree.command(name='clear', description='Clear the last 100 messages in this channel (admin only)')
+async def clear_slash(interaction: discord.Interaction):
+    await command_handlers.handle_clear_slash(interaction)
 
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
