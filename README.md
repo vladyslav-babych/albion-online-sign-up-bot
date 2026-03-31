@@ -117,6 +117,8 @@ Your linked Google Sheet is required to have 3 worksheets with the **EXACT** nam
 
 **Note:** If at least 1 letter in the column name will not match, logging and registration will not work.
 
+- You can make a copy of the following Google Sheet: https://docs.google.com/spreadsheets/d/1N9YYq0tNboJsG0n9fvTngG0JfXxO2zwaKAKMPEWjBuc
+
 ### `/update-config`
 
 Interactive update panel in chat:
