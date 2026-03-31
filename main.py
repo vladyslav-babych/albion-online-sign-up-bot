@@ -18,7 +18,7 @@ import tickets
 load_dotenv()
 
 
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv('DISCORD_TOKEN_TEST')
 BOT_RESTART_MESSAGE = os.getenv('BOT_RESTART_MESSAGE')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()

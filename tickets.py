@@ -952,7 +952,7 @@ class _OpenTicketNicknameModal(discord.ui.Modal, title="Open Ticket"):
 			await interaction.response.send_message("Please enter a character nickname.", ephemeral=True)
 			return
 
-		search_profile = await asyncio.to_thread(albion_client.get_player_by_exact_nickname_search, nickname)
+		search_profile = await asyncio.to_thread(albion_client.get_player_by_nickname, nickname)
 		if not search_profile:
 			await interaction.response.send_message(
 				"Character not found. Please check the nickname and try again.",

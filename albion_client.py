@@ -15,21 +15,7 @@ def _get_search_url(query):
 
 
 def get_player_by_nickname(nickname):
-    url = _get_search_url(quote(str(nickname or "").strip()))
-    response = requests.get(url).json()
-    players = response.get('players', [])
-    if not players:
-        return None
-    return players[0]
-
-
-def get_player_by_exact_nickname_search(nickname: str) -> Optional[dict]:
-    """Get the player object from the /search?q= endpoint by exact nickname match.
-
-    Returns the matching item from the `players` list (search endpoint schema), or None.
-    This is lower-latency than /players/{id}, but does not include LifetimeStatistics.
-    """
-    query = (nickname or "").strip()
+    query = str(nickname or "").strip()
     if not query:
         return None
 
@@ -41,23 +27,13 @@ def get_player_by_exact_nickname_search(nickname: str) -> Optional[dict]:
     except Exception:
         return None
 
-    players = data.get("players", [])
-    if not isinstance(players, list):
+    players = data.get('players', []) if isinstance(data, dict) else []
+    if not isinstance(players, list) or not players:
         return None
-
-    lowered = query.casefold()
-    for item in players:
-        if not isinstance(item, dict):
-            continue
-        name = (item.get("Name") or "").strip()
-        if name and name.casefold() == lowered:
-            return item
-
-    return None
+    return players[0] if isinstance(players[0], dict) else None
 
 
 def find_player_id_by_exact_nickname(nickname: str) -> Optional[str]:
-    """Find a player ID by exact nickname match (case-insensitive) using the search endpoint."""
     query = (nickname or "").strip()
     if not query:
         return None
@@ -87,7 +63,6 @@ def find_player_id_by_exact_nickname(nickname: str) -> Optional[str]:
 
 
 def get_player_profile_by_id(player_id: str) -> Optional[dict]:
-    """Fetch full player profile by ID from the Albion GameInfo API."""
     pid = (player_id or "").strip()
     if not pid:
         return None
@@ -101,14 +76,6 @@ def get_player_profile_by_id(player_id: str) -> Optional[dict]:
         return None
 
     return data if isinstance(data, dict) else None
-
-
-def get_player_profile_by_exact_nickname(nickname: str) -> Optional[dict]:
-    """Resolve a player by exact nickname, then fetch full profile (includes LifetimeStatistics)."""
-    pid = find_player_id_by_exact_nickname(nickname)
-    if not pid:
-        return None
-    return get_player_profile_by_id(pid)
 
 
 def _get_battle_participants(battle_id: int) -> Optional[List[dict]]:
