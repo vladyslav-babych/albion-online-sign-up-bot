@@ -144,20 +144,22 @@ def add_balances_for_lootsplit_batch(worksheet, participants: list[str], amount:
     return credited, missing_participants
 
 
-async def get_balance(context, worksheet, nickname: str = None):
+async def get_balance(context, worksheet, member=None):
     try:
-        if nickname is None:
-            row_index = _find_first_matched_target(worksheet, COL_DISCORD_ID, str(context.author.id))
-            mention = context.author.mention
-        else:
-            row_index = _find_first_matched_target(worksheet, COL_ALBION_NICKNAME, nickname)
-            discord_id = worksheet.cell(row_index, COL_DISCORD_ID).value
-            mention = f"<@{discord_id}>"
+        target = member or context.author
+        row_index = _find_first_matched_target(worksheet, COL_DISCORD_ID, str(target.id))
         if row_index is None:
             await context.send("Balance not found.")
             return
 
         silver = _read_silver(worksheet, row_index)
-        await context.send(f"{mention} balance: **{silver}** :coin:")
+
+        import discord
+
+        embed = discord.Embed()
+        embed.description = f"### {target.mention} balance:"
+        embed.add_field(name="Balance", value=f"{silver:,} :coin:", inline=False)
+        embed.add_field(name="Raw balance", value=str(silver), inline=False)
+        await context.send(embed=embed)
     except Exception as e:
         await context.send(f"Error: {e}")

@@ -37,11 +37,11 @@ class _InteractionMessageAdapter:
         self.guild = interaction.guild
         self.author = interaction.user
 
-    async def send(self, message: str):
+    async def send(self, content: str = None, **kwargs):
         if not self._interaction.response.is_done():
-            await self._interaction.response.send_message(message)
+            await self._interaction.response.send_message(content, **kwargs)
         else:
-            await self._interaction.followup.send(message)
+            await self._interaction.followup.send(content, **kwargs)
 
 
 async def handle_create_comp_from_message(bot, context, comp_message_id: int, source_channel_id: int = None):
@@ -282,11 +282,11 @@ async def handle_lootsplit_slash(
     await interaction.followup.send("\n".join(lines))
 
 
-async def handle_get_balance(context, nickname: str = None):
+async def handle_get_balance(context, member: discord.Member = None):
     worksheet = await google_sheets.get_server_worksheet_or_notice(context)
     if worksheet is None:
         return
-    await balance.get_balance(context, worksheet, nickname)
+    await balance.get_balance(context, worksheet, member)
 
 
 async def handle_bal_add_slash(

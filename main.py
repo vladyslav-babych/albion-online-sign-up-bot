@@ -18,7 +18,7 @@ import tickets
 load_dotenv()
 
 
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv('DISCORD_TOKEN_TEST')
 BOT_RESTART_MESSAGE = os.getenv('BOT_RESTART_MESSAGE')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
@@ -147,10 +147,10 @@ async def bot_remove_slash(interaction: discord.Interaction):
 
 
 @bot.tree.command(name='bal', description='Get silver balance (yours by default)')
-async def bal_slash(interaction: discord.Interaction, nickname: str = None):
+async def bal_slash(interaction: discord.Interaction, member: discord.Member = None):
     await interaction.response.defer(thinking=True)
     interaction_context = command_handlers._InteractionMessageAdapter(interaction)
-    await command_handlers.handle_get_balance(interaction_context, nickname)
+    await command_handlers.handle_get_balance(interaction_context, member)
 
 
 @bot.tree.command(name='bal-add', description='Add silver balance to a player')
