@@ -37,11 +37,35 @@ class _InteractionMessageAdapter:
         self.guild = interaction.guild
         self.author = interaction.user
 
-    async def send(self, message: str):
+    async def send(self, content: str = None, **kwargs):
         if not self._interaction.response.is_done():
-            await self._interaction.response.send_message(message)
+            await self._interaction.response.send_message(content, **kwargs)
         else:
-            await self._interaction.followup.send(message)
+            await self._interaction.followup.send(content, **kwargs)
+
+
+def _build_balance_update_embed(
+    actor: discord.Member,
+    target: discord.Member,
+    action_text: str,
+    amount_text: str,
+    reason: str,
+    old_balance: int,
+    new_balance: int,
+    history_failed: bool = False,
+) -> discord.Embed:
+    embed = discord.Embed(
+        color=discord.Color.blurple(),
+        description=f"### {actor.mention} {action_text} {amount_text} balance {'to' if action_text == 'added' else 'from'} {target.mention}",
+    )
+    embed.add_field(name="Reason", value=reason, inline=False)
+    embed.add_field(name="Old balance", value=f"{old_balance:,} :coin:", inline=False)
+    embed.add_field(name="New balance", value=f"{new_balance:,} :coin:", inline=False)
+
+    if history_failed:
+        embed.set_footer(text="Balance History entry could not be written.")
+
+    return embed
 
 
 async def handle_create_comp_from_message(bot, context, comp_message_id: int, source_channel_id: int = None):
@@ -282,11 +306,11 @@ async def handle_lootsplit_slash(
     await interaction.followup.send("\n".join(lines))
 
 
-async def handle_get_balance(context, nickname: str = None):
+async def handle_get_balance(context, member: discord.Member = None):
     worksheet = await google_sheets.get_server_worksheet_or_notice(context)
     if worksheet is None:
         return
-    await balance.get_balance(context, worksheet, nickname)
+    await balance.get_balance(context, worksheet, member)
 
 
 async def handle_bal_add_slash(
@@ -350,7 +374,7 @@ async def handle_bal_add_slash(
         await interaction.followup.send(f"{member.mention} is not registered in the Players worksheet.")
         return
 
-    target_nickname, updated_silver = target_update
+    target_nickname, previous_silver, updated_silver = target_update
 
     date_utc = datetime.now(timezone.utc).strftime("%m/%d/%y %H:%M UTC")
     history_note = ""
@@ -362,9 +386,19 @@ async def handle_bal_add_slash(
         google_sheets.ensure_balance_history_headers(bh_worksheet)
         google_sheets.add_balance_history_row(bh_worksheet, date_utc, reason, officer_name, target_nickname, amount_int)
     except Exception:
-        history_note = "\n*(Balance History entry could not be written.)*"
+        history_note = True
 
-    await interaction.followup.send(f"{member.mention} balance: **{updated_silver}** :coin:{history_note}")
+    embed = _build_balance_update_embed(
+        interaction.user,
+        member,
+        "added",
+        f"{amount_int:,}",
+        reason,
+        previous_silver,
+        updated_silver,
+        history_failed=history_note,
+    )
+    await interaction.followup.send(embed=embed)
 
 
 async def handle_bal_remove_slash(
@@ -428,7 +462,7 @@ async def handle_bal_remove_slash(
         await interaction.followup.send(f"{member.mention} is not registered in the Players worksheet.")
         return
 
-    target_nickname, updated_silver = target_update
+    target_nickname, previous_silver, updated_silver = target_update
 
     date_utc = datetime.now(timezone.utc).strftime("%m/%d/%y %H:%M UTC")
     history_note = ""
@@ -440,9 +474,19 @@ async def handle_bal_remove_slash(
         google_sheets.ensure_balance_history_headers(bh_worksheet)
         google_sheets.add_balance_history_row(bh_worksheet, date_utc, reason, officer_name, target_nickname, -amount_int)
     except Exception:
-        history_note = "\n*(Balance History entry could not be written.)*"
+        history_note = True
 
-    await interaction.followup.send(f"{member.mention} balance: **{updated_silver}** :coin:{history_note}")
+    embed = _build_balance_update_embed(
+        interaction.user,
+        member,
+        "removed",
+        f"-{amount_int:,}",
+        reason,
+        previous_silver,
+        updated_silver,
+        history_failed=history_note,
+    )
+    await interaction.followup.send(embed=embed)
 
 
 async def handle_clear(context):

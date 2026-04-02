@@ -147,10 +147,10 @@ async def bot_remove_slash(interaction: discord.Interaction):
 
 
 @bot.tree.command(name='bal', description='Get silver balance (yours by default)')
-async def bal_slash(interaction: discord.Interaction, nickname: str = None):
+async def bal_slash(interaction: discord.Interaction, member: discord.Member = None):
     await interaction.response.defer(thinking=True)
     interaction_context = command_handlers._InteractionMessageAdapter(interaction)
-    await command_handlers.handle_get_balance(interaction_context, nickname)
+    await command_handlers.handle_get_balance(interaction_context, member)
 
 
 @bot.tree.command(name='bal-add', description='Add silver balance to a player')
