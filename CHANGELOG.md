@@ -8,6 +8,16 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - (add upcoming changes here)
 
+## [v1.0.1] - 2026-04-02
+
+### Changed
+
+- Economy command UX:
+  - `/bal` now supports checking another member with `/bal @User` instead of manual nickname entry.
+  - `/bal` now responds with a balance panel that shows the requested member inside the panel and includes both formatted and raw balance values.
+  - `/bal-add` and `/bal-remove` now respond with balance update panels instead of plain text messages.
+  - Balance update panels now include the action summary plus `Reason`, `Old balance`, and `New balance` fields.
+
 ## [v1.0.0] - 2026-03-31
 
 ### Added
@@ -72,6 +82,7 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - Service account credentials and server configuration are stored as local JSON files on the machine hosting the bot. Treat the host as sensitive.
 
-[Unreleased]: compare/v1.0.0...HEAD
+[Unreleased]: compare/v1.0.1...HEAD
+[v1.0.1]: releases/tag/v1.0.1
 [v1.0.0]: releases/tag/v1.0.0
 [v0.1.0]: releases/tag/v0.1.0
