@@ -52,7 +52,7 @@ def update_member_balance_by_discord_id(
     discord_id: int,
     delta: int,
     clamp_min_zero: bool = False,
-) -> Optional[tuple[str, int]]:
+) -> Optional[tuple[str, int, int]]:
     target_result = find_player_by_discord_id(rows, discord_id)
     if target_result is None:
         return None
@@ -63,7 +63,7 @@ def update_member_balance_by_discord_id(
         updated_silver = max(updated_silver, 0)
 
     worksheet.update_cell(target_row_index, COL_SILVER, str(updated_silver))
-    return target_nickname, updated_silver
+    return target_nickname, current_silver, updated_silver
 
 
 def _is_quota_error(error: Exception) -> bool:
@@ -156,7 +156,9 @@ async def get_balance(context, worksheet, member=None):
 
         import discord
 
-        embed = discord.Embed()
+        embed = discord.Embed(
+            color=discord.Color.gold()
+        )
         embed.description = f"### {target.mention} balance:"
         embed.add_field(name="Balance", value=f"{silver:,} :coin:", inline=False)
         embed.add_field(name="Raw balance", value=str(silver), inline=False)
