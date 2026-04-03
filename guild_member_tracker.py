@@ -12,7 +12,7 @@ import google_sheets
 import guild_settings
 
 
-_CHECK_INTERVAL_SECONDS = 300
+_CHECK_INTERVAL_SECONDS = 180
 
 _tracker_task: Optional[asyncio.Task] = None
 
