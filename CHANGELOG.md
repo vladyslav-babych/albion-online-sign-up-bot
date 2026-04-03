@@ -12,7 +12,7 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 ### Changed
 
-- Updated check interval for leave guild action.
+- Updated check interval for leave guild action: 300 seconds -> 180 seconds.
 
 ## [v1.1.1] - 2026-04-03
 
