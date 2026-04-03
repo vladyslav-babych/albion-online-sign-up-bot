@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Optional
 
 import discord
 
@@ -29,6 +30,13 @@ def _has_any_named_role(member: discord.Member, role_names: list[str]) -> bool:
 def _has_economy_access(member: discord.Member, guild_id: int) -> bool:
     economy_roles = guild_settings.get_economy_manager_roles(guild_id)
     return _has_any_named_role(member, economy_roles)
+
+
+def _resolve_member_sheet_name(rows: list[list[str]], member: discord.Member) -> str:
+    registration = balance.find_player_by_discord_id(rows, member.id)
+    if registration is not None:
+        return registration[1]
+    return member.display_name
 
 
 class _InteractionMessageAdapter:
@@ -184,11 +192,11 @@ async def handle_update_config_slash(interaction: discord.Interaction):
 async def handle_lootsplit_slash(
     interaction: discord.Interaction,
     battle_ids: str,
-    officer: str,
     content_name: str,
-    caller: str,
+    caller: discord.Member,
     participants: str,
     lootsplit_amount: str,
+    officer: Optional[discord.Member] = None,
 ):
     if interaction.guild is None:
         await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
@@ -197,6 +205,9 @@ async def handle_lootsplit_slash(
     if not isinstance(interaction.user, discord.Member):
         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
         return
+
+    if officer is None:
+        officer = interaction.user
 
     has_access = await globals.is_admin(interaction.user) or _has_economy_access(interaction.user, interaction.guild.id)
     if not has_access:
@@ -208,6 +219,12 @@ async def handle_lootsplit_slash(
     players_worksheet = await google_sheets.get_server_worksheet_or_notice(interaction.channel)
     if players_worksheet is None:
         await interaction.followup.send("Unable to open Players worksheet.")
+        return
+
+    try:
+        all_rows = players_worksheet.get_all_values()
+    except Exception:
+        await interaction.followup.send("Failed to read Players worksheet. Try again.")
         return
 
     lootsplit_worksheet = await google_sheets.get_server_lootsplit_history_worksheet_or_notice(interaction.channel)
@@ -239,6 +256,8 @@ async def handle_lootsplit_slash(
 
     date_utc = datetime.now(timezone.utc).strftime("%m/%d/%y %H:%M UTC")
     battle_ids_normalized = ",".join(battle_id_list)
+    officer_name = _resolve_member_sheet_name(all_rows, officer)
+    caller_name = _resolve_member_sheet_name(all_rows, caller)
 
     credited_mentions = []
     missing_participants = []
@@ -259,9 +278,9 @@ async def handle_lootsplit_slash(
         history_rows.append([
             battle_ids_normalized,
             date_utc,
-            officer,
+            officer_name,
             content_name,
-            caller,
+            caller_name,
             participant_name,
             str(lootsplit_amount_int),
         ])
@@ -282,7 +301,7 @@ async def handle_lootsplit_slash(
         )
         google_sheets.ensure_balance_history_headers(bh_worksheet)
         google_sheets.add_balance_history_rows(bh_worksheet, [
-            [date_utc, "Lootsplit", officer, participant_name, str(lootsplit_amount_int)]
+            [date_utc, "Lootsplit", officer_name, participant_name, str(lootsplit_amount_int)]
             for participant_name, _ in credited
         ])
     except Exception:

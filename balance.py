@@ -6,6 +6,7 @@ from typing import Optional
 COL_DISCORD_ID = 1
 COL_ALBION_NICKNAME = 2
 COL_SILVER = 4
+COL_SIPHON = 5
 
 
 def _find_first_matched_target(worksheet, col_index: int, target: str):
@@ -16,11 +17,19 @@ def _find_first_matched_target(worksheet, col_index: int, target: str):
     return None
 
 
-def _read_silver(worksheet, row_index: int) -> int:
-    raw_silver = worksheet.cell(row_index, COL_SILVER).value
-    if raw_silver is None or raw_silver == "":
+def _read_numeric_cell(worksheet, row_index: int, col_index: int) -> int:
+    raw_value = worksheet.cell(row_index, col_index).value
+    if raw_value is None or raw_value == "":
         return 0
-    return int(str(raw_silver).replace(' ', ''))
+    return int(str(raw_value).replace(' ', ''))
+
+
+def _read_silver(worksheet, row_index: int) -> int:
+    return _read_numeric_cell(worksheet, row_index, COL_SILVER)
+
+
+def _read_siphon(worksheet, row_index: int) -> int:
+    return _read_numeric_cell(worksheet, row_index, COL_SIPHON)
 
 
 def _parse_silver_value(raw_silver: str) -> int:
@@ -153,6 +162,7 @@ async def get_balance(context, worksheet, member=None):
             return
 
         silver = _read_silver(worksheet, row_index)
+        siphon = _read_siphon(worksheet, row_index)
 
         import discord
 
@@ -160,7 +170,9 @@ async def get_balance(context, worksheet, member=None):
             color=discord.Color.gold()
         )
         embed.description = f"### {target.mention} balance:"
-        embed.add_field(name="Balance", value=f"{silver:,} :coin:", inline=False)
+        embed.set_thumbnail(url=target.display_avatar.url)
+        embed.add_field(name="Balance", value=f"{silver:,} :coin:", inline=True)
+        embed.add_field(name="Siphon", value=f"{siphon:,} :oil:", inline=True)
         embed.add_field(name="Raw balance", value=str(silver), inline=False)
         await context.send(embed=embed)
     except Exception as e:

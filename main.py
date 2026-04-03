@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 import discord
 from discord.ext import commands
@@ -124,20 +125,20 @@ async def update_config_slash(interaction: discord.Interaction):
 async def lootsplit_slash(
     interaction: discord.Interaction,
     battle_ids: str,
-    officer: str,
     content_name: str,
-    caller: str,
+    caller: discord.Member,
     participants: str,
     lootsplit_amount: str,
+    officer: Optional[discord.Member] = None,
 ):
     await command_handlers.handle_lootsplit_slash(
         interaction,
         battle_ids,
-        officer,
         content_name,
         caller,
         participants,
         lootsplit_amount,
+        officer,
     )
 
 

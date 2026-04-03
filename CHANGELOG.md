@@ -8,6 +8,19 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - (add upcoming changes here)
 
+## [v1.1.0] - 2026-04-03
+
+### Changed
+
+- Players worksheet schema now includes a fifth `Siphon` column alongside `Silver`.
+- `/bal` panel improvements:
+  - now shows the member's Discord avatar in the embed.
+  - now shows a `Siphon` field read from the Players worksheet.
+- `/lootsplit` command UX:
+  - `Officer` and `Caller` now use Discord member selectors instead of manual nickname text.
+  - selected `Officer` and `Caller` are resolved to their registered Players-sheet nickname when available, with Discord display name as fallback.
+  - `Officer` is now optional and defaults to the member who runs the command.
+
 ## [v1.0.1] - 2026-04-02
 
 ### Changed
@@ -82,7 +95,8 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - Service account credentials and server configuration are stored as local JSON files on the machine hosting the bot. Treat the host as sensitive.
 
-[Unreleased]: compare/v1.0.1...HEAD
+[Unreleased]: compare/v1.1.0...HEAD
+[v1.1.0]: releases/tag/v1.1.0
 [v1.0.1]: releases/tag/v1.0.1
 [v1.0.0]: releases/tag/v1.0.0
 [v0.1.0]: releases/tag/v0.1.0
