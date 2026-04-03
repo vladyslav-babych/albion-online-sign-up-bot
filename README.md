@@ -99,9 +99,9 @@ Your linked Google Sheet is required to have 3 worksheets with the **EXACT** nam
 
 - **Players** worksheet, column names **MUST** match those that are indicated in the example (values are for example):
 
-| Discord ID | Albion Nickname | Is In Guild | Silver |
-|------------|-----------------|------------|--------|
-| 1234567890 | Nickname | YES | 0 |  
+| Discord ID | Albion Nickname | Is In Guild | Silver | Siphon |
+|------------|-----------------|-------------|--------|--------|
+| 1234567890 | Nickname | YES | 0 | 0 |  
 
 - **Lootsplit History** worksheet, column names **MUST** match those that are indicated in the example (values are for example):
 
