@@ -8,6 +8,13 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - (add upcoming changes here)
 
+## [v1.1.3] - 2026-04-04
+
+### Fixed
+
+- Economy command responses that exceed Discord's message length limit are now split into multiple follow-up messages instead of failing.
+- `/lootsplit` and `/get-negative-siphon` no longer error when the response content grows beyond 2000 characters.
+
 ## [v1.1.2] - 2026-04-03
 
 ### Changed
@@ -112,7 +119,8 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - Service account credentials and server configuration are stored as local JSON files on the machine hosting the bot. Treat the host as sensitive.
 
-[Unreleased]: compare/v1.1.2...HEAD
+[Unreleased]: compare/v1.1.3...HEAD
+[v1.1.3]: releases/tag/v1.1.3
 [v1.1.2]: releases/tag/v1.1.2
 [v1.1.1]: releases/tag/v1.1.1
 [v1.1.0]: releases/tag/v1.1.0

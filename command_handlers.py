@@ -39,6 +39,39 @@ def _resolve_member_sheet_name(rows: list[list[str]], member: discord.Member) ->
     return member.display_name
 
 
+async def _send_followup_lines(interaction: discord.Interaction, lines: list[str], limit: int = 1900) -> None:
+    pending_lines = list(lines)
+    current_lines: list[str] = []
+    current_length = 0
+
+    while pending_lines:
+        line = pending_lines.pop(0)
+
+        if len(line) > limit:
+            if current_lines:
+                await interaction.followup.send("\n".join(current_lines))
+                current_lines = []
+                current_length = 0
+
+            while line:
+                await interaction.followup.send(line[:limit])
+                line = line[limit:]
+            continue
+
+        extra_length = len(line) if not current_lines else len(line) + 1
+        if current_length + extra_length > limit:
+            await interaction.followup.send("\n".join(current_lines))
+            current_lines = [line]
+            current_length = len(line)
+            continue
+
+        current_lines.append(line)
+        current_length += extra_length
+
+    if current_lines:
+        await interaction.followup.send("\n".join(current_lines))
+
+
 class _InteractionMessageAdapter:
     def __init__(self, interaction: discord.Interaction):
         self._interaction = interaction
@@ -322,7 +355,7 @@ async def handle_lootsplit_slash(
         lines.append("")
         lines.append(f"Failed to process: **{', '.join(failed_participants)}**")
 
-    await interaction.followup.send("\n".join(lines))
+    await _send_followup_lines(interaction, lines)
 
 
 async def handle_get_balance(context, member: discord.Member = None):
@@ -368,7 +401,7 @@ async def handle_get_negative_siphon_slash(interaction: discord.Interaction):
     for discord_id, _nickname, siphon_value in negative_players:
         lines.append(f"<@{discord_id}>: **{siphon_value:,}**")
 
-    await interaction.followup.send("\n".join(lines))
+    await _send_followup_lines(interaction, lines)
 
 
 async def handle_bal_add_slash(
