@@ -54,6 +54,7 @@ python main.py
 - `/get-participants`
 - `/lootsplit`
 - `/bal`
+- `/get-negative-siphon`
 - `/bal-add`
 - `/bal-remove`
 - `/clear`
@@ -62,7 +63,7 @@ python main.py
 
 - Admin-only:
 	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `/bot-remove`, `/clear`
-- Economy operations (`/lootsplit`, `/bal-add`, `/bal-remove`):
+- Economy operations (`/lootsplit`, `/get-negative-siphon`, `/bal-add`, `/bal-remove`):
 	- Allowed for Admins OR members with configured Economy Manager role(s)
 - Comp officer actions (`!create-comp`, forced sign-up/sign-out in party threads):
 	- Allowed for Admins OR members with configured Caller role(s)

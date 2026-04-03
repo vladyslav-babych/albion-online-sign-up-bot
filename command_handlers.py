@@ -332,6 +332,45 @@ async def handle_get_balance(context, member: discord.Member = None):
     await balance.get_balance(context, worksheet, member)
 
 
+async def handle_get_negative_siphon_slash(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)
+        return
+
+    if not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    has_access = await globals.is_admin(interaction.user) or _has_economy_access(interaction.user, interaction.guild.id)
+    if not has_access:
+        await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        return
+
+    await interaction.response.defer(thinking=True)
+
+    players_worksheet = await google_sheets.get_server_worksheet_or_notice(interaction.channel)
+    if players_worksheet is None:
+        await interaction.followup.send("Unable to open Players worksheet.")
+        return
+
+    try:
+        all_rows = players_worksheet.get_all_values()
+    except Exception:
+        await interaction.followup.send("Failed to read Players worksheet. Try again.")
+        return
+
+    negative_players = balance.find_negative_siphon_players(all_rows)
+    if not negative_players:
+        await interaction.followup.send("No users have a negative Siphon balance.")
+        return
+
+    lines = ["## Users with negative Siphon :oil: balance:"]
+    for discord_id, _nickname, siphon_value in negative_players:
+        lines.append(f"<@{discord_id}>: **{siphon_value:,}**")
+
+    await interaction.followup.send("\n".join(lines))
+
+
 async def handle_bal_add_slash(
     interaction: discord.Interaction,
     member: discord.Member,

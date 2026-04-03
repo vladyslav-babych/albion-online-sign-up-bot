@@ -43,6 +43,26 @@ def _parse_silver_value(raw_silver: str) -> int:
         return 0
 
 
+def find_negative_siphon_players(rows: list) -> list[tuple[str, str, int]]:
+    negative_players: list[tuple[str, str, int]] = []
+
+    for row in rows:
+        if len(row) < COL_SIPHON:
+            continue
+
+        discord_id = row[COL_DISCORD_ID - 1].strip() if len(row) >= COL_DISCORD_ID else ""
+        if not discord_id.isdigit():
+            continue
+
+        nickname = row[COL_ALBION_NICKNAME - 1].strip() if len(row) >= COL_ALBION_NICKNAME else ""
+        siphon_value = _parse_silver_value(row[COL_SIPHON - 1].strip())
+        if siphon_value < 0:
+            negative_players.append((discord_id, nickname, siphon_value))
+
+    negative_players.sort(key=lambda player: player[2])
+    return negative_players
+
+
 def find_player_by_discord_id(rows: list, discord_id: int) -> Optional[tuple[int, str, int]]:
     discord_id_str = str(discord_id).strip()
     for row_index, row in enumerate(rows, start=1):
