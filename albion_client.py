@@ -127,7 +127,7 @@ async def get_battle_participants(context, battle_ids: str):
         await context.send(f"No **{target_guild_name}** members found in the provided battle(s).")
         return
 
-    sorted_members = sorted(guild_members)
+    sorted_members = sorted(guild_members, key=lambda name: (name.casefold(), name))
     names_list = ','.join(sorted_members)
     battle_label = ', '.join(ids)
     await context.send(f"**{len(sorted_members)} {target_guild_name} member(s) in battle(s) {battle_label}:**\n{names_list}")

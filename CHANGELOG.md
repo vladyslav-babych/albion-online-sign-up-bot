@@ -8,6 +8,17 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - (add upcoming changes here)
 
+## [v1.1.1] - 2026-04-03
+
+### Added
+
+- Economy command:
+  - Added `/get-negative-siphon` to mention all users with negative Siphon balance, ordered from most negative to least negative.
+
+### Changed
+
+- `/get-participants` now sorts participant names case-insensitively so names are grouped regardless of uppercase/lowercase differences.
+
 ## [v1.1.0] - 2026-04-03
 
 ### Changed
@@ -95,7 +106,8 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - Service account credentials and server configuration are stored as local JSON files on the machine hosting the bot. Treat the host as sensitive.
 
-[Unreleased]: compare/v1.1.0...HEAD
+[Unreleased]: compare/v1.1.1...HEAD
+[v1.1.1]: releases/tag/v1.1.1
 [v1.1.0]: releases/tag/v1.1.0
 [v1.0.1]: releases/tag/v1.0.1
 [v1.0.0]: releases/tag/v1.0.0

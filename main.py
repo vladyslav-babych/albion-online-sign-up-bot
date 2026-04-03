@@ -154,6 +154,11 @@ async def bal_slash(interaction: discord.Interaction, member: discord.Member = N
     await command_handlers.handle_get_balance(interaction_context, member)
 
 
+@bot.tree.command(name='get-negative-siphon', description='Mention users with negative Siphon balance')
+async def get_negative_siphon_slash(interaction: discord.Interaction):
+    await command_handlers.handle_get_negative_siphon_slash(interaction)
+
+
 @bot.tree.command(name='bal-add', description='Add silver balance to a player')
 async def bal_add_slash(
     interaction: discord.Interaction,
