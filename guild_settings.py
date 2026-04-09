@@ -179,6 +179,63 @@ def get_all_bot_updates_channels() -> dict[int, int]:
     return result
 
 
+def set_utc_timer_channel(discord_server_id: int, channel_id: int) -> None:
+    config = _load_config()
+    server_key = str(discord_server_id)
+    entry = config.get(server_key)
+    base_entry = entry.copy() if isinstance(entry, dict) else {}
+    base_entry["utc_timer_channel_id"] = str(channel_id)
+    config[server_key] = base_entry
+    _save_config(config)
+
+
+def get_utc_timer_channel(discord_server_id: int) -> Optional[int]:
+    config = _load_config()
+    entry = config.get(str(discord_server_id))
+    if not isinstance(entry, dict):
+        return None
+
+    raw_channel_id = entry.get("utc_timer_channel_id")
+    try:
+        return int(raw_channel_id) if raw_channel_id is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def clear_utc_timer_channel(discord_server_id: int) -> None:
+    config = _load_config()
+    entry = config.get(str(discord_server_id))
+    if not isinstance(entry, dict):
+        return
+
+    if "utc_timer_channel_id" not in entry:
+        return
+
+    entry.pop("utc_timer_channel_id", None)
+    config[str(discord_server_id)] = entry
+    _save_config(config)
+
+
+def get_all_utc_timer_channels() -> dict[int, int]:
+    config = _load_config()
+    result: dict[int, int] = {}
+
+    for server_id, entry in config.items():
+        if not isinstance(entry, dict):
+            continue
+
+        raw_channel_id = entry.get("utc_timer_channel_id")
+        try:
+            parsed_server_id = int(server_id)
+            parsed_channel_id = int(raw_channel_id)
+        except (TypeError, ValueError):
+            continue
+
+        result[parsed_server_id] = parsed_channel_id
+
+    return result
+
+
 def get_all_configured_server_ids() -> list[int]:
     config = _load_config()
     result: list[int] = []
