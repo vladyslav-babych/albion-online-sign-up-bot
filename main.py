@@ -200,7 +200,7 @@ async def clear_slash(interaction: discord.Interaction):
     await command_handlers.handle_clear_slash(interaction)
 
 
-@bot.tree.command(name='add-utc-timer', description='Create a voice channel that shows the current UTC time')
+@bot.tree.command(name='add-utc-timer', description='Append the current UTC time to the server name')
 async def add_utc_timer_slash(interaction: discord.Interaction):
     await utc_timer.handle_add_utc_timer_slash(interaction)
 

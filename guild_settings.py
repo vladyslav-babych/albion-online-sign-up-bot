@@ -236,6 +236,62 @@ def get_all_utc_timer_channels() -> dict[int, int]:
     return result
 
 
+def set_utc_timer_guild_name(discord_server_id: int, guild_name: str) -> None:
+    config = _load_config()
+    server_key = str(discord_server_id)
+    entry = config.get(server_key)
+    base_entry = entry.copy() if isinstance(entry, dict) else {}
+    base_entry["utc_timer_guild_name"] = guild_name.strip()
+    config[server_key] = base_entry
+    _save_config(config)
+
+
+def get_utc_timer_guild_name(discord_server_id: int) -> Optional[str]:
+    config = _load_config()
+    entry = config.get(str(discord_server_id))
+    if not isinstance(entry, dict):
+        return None
+
+    value = (entry.get("utc_timer_guild_name") or "").strip()
+    return value or None
+
+
+def clear_utc_timer_guild_name(discord_server_id: int) -> None:
+    config = _load_config()
+    entry = config.get(str(discord_server_id))
+    if not isinstance(entry, dict):
+        return
+
+    if "utc_timer_guild_name" not in entry:
+        return
+
+    entry.pop("utc_timer_guild_name", None)
+    config[str(discord_server_id)] = entry
+    _save_config(config)
+
+
+def get_all_utc_timer_guild_names() -> dict[int, str]:
+    config = _load_config()
+    result: dict[int, str] = {}
+
+    for server_id, entry in config.items():
+        if not isinstance(entry, dict):
+            continue
+
+        raw_name = (entry.get("utc_timer_guild_name") or "").strip()
+        if not raw_name:
+            continue
+
+        try:
+            parsed_server_id = int(server_id)
+        except (TypeError, ValueError):
+            continue
+
+        result[parsed_server_id] = raw_name
+
+    return result
+
+
 def get_all_configured_server_ids() -> list[int]:
     config = _load_config()
     result: list[int] = []
