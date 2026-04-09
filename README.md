@@ -259,15 +259,16 @@ Admin command that posts or updates a persistent **Objectives panel** in the cur
 - Requires the server to be configured first via `/bot-setup`.
 - If a panel already exists in another channel, the bot moves it by deleting the old message (or editing it with a “moved” notice if it cannot delete).
 
-## UTC timer voice channel
+## UTC timer in server name
 
 ### `/add-utc-timer`
 
-Admin command that creates one voice channel per server whose name shows the current UTC time in `UTC HH:MM` format.
+Admin command that appends the current UTC time to the server name in `Server Name [HH:MM]` format.
 
-- The bot updates the channel name every 10 minutes. Discord rate-limits channel renames, so true 1-minute channel-name updates are not reliable.
-- The created channel denies `Connect` for `@everyone`, so members can see it without joining it.
-- Running the command again reuses the already configured timer channel instead of creating duplicates.
+- The bot updates the server name every 10 minutes.
+- The original server name is stored and reused as the base, so the UTC suffix is always appended to the clean name.
+- Running the command again reuses the stored base name and refreshes the current UTC suffix.
+- The bot needs the `Manage Server` permission to rename the guild.
 
 ### Adding objectives
 
