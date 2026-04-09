@@ -58,11 +58,12 @@ python main.py
 - `/bal-add`
 - `/bal-remove`
 - `/clear`
+- `/add-utc-timer`
 
 ## Permissions model
 
 - Admin-only:
-	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `/bot-remove`, `/clear`
+	- `/bot-setup`, `/bot-link-google-sheet`, `/tickets-setup`, `/update-config`, `/bot-remove`, `/clear`, `/add-utc-timer`
 - Economy operations (`/lootsplit`, `/get-negative-siphon`, `/bal-add`, `/bal-remove`):
 	- Allowed for Admins OR members with configured Economy Manager role(s)
 - Comp officer actions (`!create-comp`, forced sign-up/sign-out in party threads):
@@ -257,6 +258,16 @@ Admin command that posts or updates a persistent **Objectives panel** in the cur
 
 - Requires the server to be configured first via `/bot-setup`.
 - If a panel already exists in another channel, the bot moves it by deleting the old message (or editing it with a “moved” notice if it cannot delete).
+
+## UTC timer voice channel
+
+### `/add-utc-timer`
+
+Admin command that creates one voice channel per server whose name shows the current UTC time in `UTC HH:MM` format.
+
+- The bot updates the channel name every 10 minutes. Discord rate-limits channel renames, so true 1-minute channel-name updates are not reliable.
+- The created channel denies `Connect` for `@everyone`, so members can see it without joining it.
+- Running the command again reuses the already configured timer channel instead of creating duplicates.
 
 ### Adding objectives
 

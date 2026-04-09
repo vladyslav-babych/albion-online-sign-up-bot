@@ -14,6 +14,7 @@ import guild_member_tracker
 import objectives
 import role_reaction
 import tickets
+import utc_timer
 
 
 load_dotenv()
@@ -66,6 +67,8 @@ async def on_ready():
         objectives.register_persistent_views(bot)
         objectives.start_objectives_scheduler(bot)
         guild_member_tracker.start_guild_member_tracker(bot)
+        utc_timer.start_utc_timer_scheduler(bot)
+        await utc_timer.refresh_utc_timer_channels(bot)
         await bot.tree.sync()
         await _send_restart_notifications()
         slash_commands_synced = True
@@ -195,6 +198,11 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent) -> Non
 @bot.tree.command(name='clear', description='Clear the last 100 messages in this channel (admin only)')
 async def clear_slash(interaction: discord.Interaction):
     await command_handlers.handle_clear_slash(interaction)
+
+
+@bot.tree.command(name='add-utc-timer', description='Create a voice channel that shows the current UTC time')
+async def add_utc_timer_slash(interaction: discord.Interaction):
+    await utc_timer.handle_add_utc_timer_slash(interaction)
 
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)

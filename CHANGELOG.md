@@ -8,6 +8,16 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - (add upcoming changes here)
 
+### Changed
+
+- `/add-utc-timer` now refreshes its voice-channel name every 10 minutes instead of every minute to avoid Discord channel rename rate limits.
+
+## [v1.1.4] - 2026-04-09
+
+### Added
+
+- New admin command `/add-utc-timer` that creates a voice channel displaying the current UTC time.
+
 ## [v1.1.3] - 2026-04-04
 
 ### Fixed
@@ -119,7 +129,8 @@ This project aims to follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 - Service account credentials and server configuration are stored as local JSON files on the machine hosting the bot. Treat the host as sensitive.
 
-[Unreleased]: compare/v1.1.3...HEAD
+[Unreleased]: compare/v1.1.4...HEAD
+[v1.1.4]: releases/tag/v1.1.4
 [v1.1.3]: releases/tag/v1.1.3
 [v1.1.2]: releases/tag/v1.1.2
 [v1.1.1]: releases/tag/v1.1.1
